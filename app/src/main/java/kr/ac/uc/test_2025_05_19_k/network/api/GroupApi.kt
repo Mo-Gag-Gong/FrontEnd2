@@ -1,6 +1,7 @@
 // mo-gag-gong/frontend/frontend-dev-hj/app/src/main/java/kr/ac/uc/test_2025_05_19_k/network/api/GroupApi.kt
 package kr.ac.uc.test_2025_05_19_k.network.api
 
+import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.model.PageGroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.model.PageStudyGroupDto
@@ -78,4 +79,22 @@ interface GroupApi {
         @Path("noticeId") noticeId: Long,
         @Body request: GroupNoticeCreateRequest // 생성과 동일한 DTO 사용
     ): GroupNoticeDto // 성공 시 수정된 GroupNoticeDto 반환
+
+    @GET("/api/groups/{groupId}/members")
+    suspend fun getGroupMembers(@Path("groupId") groupId: Long): List<GroupMemberDto>
+
+    @GET("/api/groups/{groupId}/pending-members")
+    suspend fun getPendingMembers(@Path("groupId") groupId: Long): List<GroupMemberDto>
+
+    @POST("/api/groups/{groupId}/members/{userId}/approve")
+    suspend fun approveMember(
+        @Path("groupId") groupId: Long,
+        @Path("userId") userId: Long
+    ): Response<Void>
+
+    @POST("/api/groups/{groupId}/members/{userId}/reject")
+    suspend fun rejectMember(
+        @Path("groupId") groupId: Long,
+        @Path("userId") userId: Long
+    ): Response<Void>
 }
