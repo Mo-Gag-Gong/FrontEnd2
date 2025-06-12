@@ -33,6 +33,7 @@ import kr.ac.uc.test_2025_05_19_k.ui.group.NoticeEditScreen
 
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import kr.ac.uc.test_2025_05_19_k.ui.group.GroupMemberDetailScreen
 import kr.ac.uc.test_2025_05_19_k.ui.group.GroupMemberManageScreen
 import kr.ac.uc.test_2025_05_19_k.viewmodel.InterestSelectViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.OnboardingViewModel
@@ -298,14 +299,25 @@ fun AppNavGraph(
             )
         }
 
-// 아래 내용 추가
         composable(
             "group_member_manage/{groupId}",
             arguments = listOf(navArgument("groupId") { type = NavType.LongType })
         ) {
             GroupMemberManageScreen(navController = navController)
         }
+        composable(
+            "group_member_detail/{groupId}/{userId}/{status}", // status 파라미터가 포함된 경로
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.LongType },
+                navArgument("userId") { type = NavType.LongType },
+                navArgument("status") { type = NavType.StringType } // status의 타입을 String으로 정의
+            )
+        ) {
+            // GroupMemberDetailScreen을 호출하는 부분은 그대로 둡니다.
+            GroupMemberDetailScreen(navController = navController)
+        }
     }
+
 }
 
 // Splash-like 자동 분기용 EntryScreen

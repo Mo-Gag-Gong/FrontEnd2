@@ -7,6 +7,10 @@ import kr.ac.uc.test_2025_05_19_k.model.auth.LoginRequest
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
+import kr.ac.uc.test_2025_05_19_k.model.UserProfileWithStatsDto // 새로 만든 DTO import
+// ... 다른 imports
+import retrofit2.Response
 
 interface UserApi {
 
@@ -22,4 +26,7 @@ interface UserApi {
 
     @GET("/api/auth/me")
     suspend fun getMyProfile(): AuthUserProfile
+
+    @GET("api/users/{userId}/profile")
+    suspend fun getUserProfile(@Path("userId") userId: Long): Response<UserProfileWithStatsDto>
 }

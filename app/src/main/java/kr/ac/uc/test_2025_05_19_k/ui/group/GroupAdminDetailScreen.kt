@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -24,12 +26,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.viewmodel.GroupAdminDetailViewModel
@@ -245,21 +250,35 @@ fun MembersTab(
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(members) { member ->
                 MemberCard(member = member) {
-                    viewModel.kickMember(member.userId)
+                    // 클릭 시 status를 "ACTIVE"로 하여 멤버 상세 화면으로 이동
+                    navController.navigate("group_member_detail/$groupId/${member.userId}/ACTIVE")
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MemberCard(member: GroupMemberDto, onKick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+fun MemberCard(member: GroupMemberDto, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick // 카드 클릭 리스너
+    ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // 프로필 사진 추가
+            AsyncImage(
+                model = member.profileImage ?: "https://via.placeholder.com/150",
+                contentDescription = "멤버 프로필 사진",
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
             Column {
                 Text(member.userName, style = MaterialTheme.typography.bodyLarge)
                 Text(
@@ -267,9 +286,6 @@ fun MemberCard(member: GroupMemberDto, onKick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
-            }
-            IconButton(onClick = onKick) {
-                Icon(Icons.Default.Cancel, contentDescription = "추방", tint = Color.Red)
             }
         }
     }

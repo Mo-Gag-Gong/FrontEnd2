@@ -15,10 +15,10 @@ import javax.inject.Inject
 @HiltViewModel
 class GroupMemberManageViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
-    private val savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val groupId: Long = checkNotNull(savedStateHandle["groupId"])
+    val groupId: Long = checkNotNull(savedStateHandle["groupId"])
 
     private val _pendingMembers = MutableStateFlow<List<GroupMemberDto>>(emptyList())
     val pendingMembers: StateFlow<List<GroupMemberDto>> = _pendingMembers.asStateFlow()
@@ -37,10 +37,12 @@ class GroupMemberManageViewModel @Inject constructor(
         }
     }
 
+    // approve/reject 함수는 private으로 유지해도 괜찮습니다.
+    // 현재 UI에서는 사용하지 않기 때문입니다.
     fun approveMember(userId: Long) {
         viewModelScope.launch {
             groupRepository.approveMember(groupId, userId).onSuccess {
-                fetchPendingMembers() // 성공 시 목록 새로고침
+                fetchPendingMembers()
             }.onFailure {
                 // 오류 처리
             }
@@ -50,7 +52,7 @@ class GroupMemberManageViewModel @Inject constructor(
     fun rejectMember(userId: Long) {
         viewModelScope.launch {
             groupRepository.rejectMember(groupId, userId).onSuccess {
-                fetchPendingMembers() // 성공 시 목록 새로고침
+                fetchPendingMembers()
             }.onFailure {
                 // 오류 처리
             }
