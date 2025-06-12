@@ -13,6 +13,7 @@ import kr.ac.uc.test_2025_05_19_k.model.StudyGroupDetail
 import kr.ac.uc.test_2025_05_19_k.repository.GroupRepository
 import javax.inject.Inject
 import android.util.Log
+import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto // GroupNoticeDto 임포트
 
 @HiltViewModel
@@ -20,6 +21,9 @@ class GroupAdminDetailViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    private val _groupMembers = MutableStateFlow<List<GroupMemberDto>>(emptyList())
+    val groupMembers: StateFlow<List<GroupMemberDto>> = _groupMembers.asStateFlow()
 
     val groupId: Long = savedStateHandle.get<Long>("groupId") ?: -1L
 
@@ -53,6 +57,7 @@ class GroupAdminDetailViewModel @Inject constructor(
             fetchGroupDetails()
             // 화면 진입 시 첫 번째 탭인 공지사항 목록을 바로 불러옵니다.
             fetchNoticesFirstPage()
+            fetchGroupMembers()
         }
     }
 
@@ -65,6 +70,24 @@ class GroupAdminDetailViewModel @Inject constructor(
                 Log.e("GroupAdminDetailVM", "그룹 상세 정보 로드 실패: ${e.message}", e)
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+    fun fetchGroupMembers() {
+        viewModelScope.launch {
+            groupRepository.getGroupMembers(groupId).onSuccess { members ->
+                _groupMembers.value = members.filter { it.status == "ACTIVE" } // ACTIVE 상태인 멤버만 필터링
+            }.onFailure {
+                // 오류 처리
+            }
+        }
+    }
+    fun kickMember(userId: Long) {
+        viewModelScope.launch {
+            groupRepository.kickMember(groupId, userId).onSuccess {
+                fetchGroupMembers() // 추방 성공 시 목록 새로고침
+            }.onFailure {
+                // 오류 처리
             }
         }
     }

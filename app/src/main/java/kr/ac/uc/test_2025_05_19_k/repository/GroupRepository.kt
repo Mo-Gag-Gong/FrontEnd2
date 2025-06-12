@@ -67,18 +67,58 @@ class GroupRepository @Inject constructor(
         return groupApi.updateNotice(groupId, noticeId, request)
     }
 
-    suspend fun getGroupMembers(groupId: Long): List<GroupMemberDto> {
-        return groupApi.getGroupMembers(groupId)
+    suspend fun getGroupMembers(groupId: Long): Result<List<GroupMemberDto>> = try {
+        val response = groupApi.getGroupMembers(groupId)
+        if (response.isSuccessful && response.body() != null) {
+            Result.success(response.body()!!)
+        } else {
+            Result.failure(Exception("Failed to fetch group members"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
-    suspend fun getPendingMembers(groupId: Long): List<GroupMemberDto> {
-        return groupApi.getPendingMembers(groupId)
-    }
-    suspend fun approveMember(groupId: Long, userId: Long): Response<Void> {
-        return groupApi.approveMember(groupId, userId)
+    suspend fun kickMember(groupId: Long, userId: Long): Result<Unit> = try {
+        val response = groupApi.kickMember(groupId, userId)
+        if (response.isSuccessful) {
+            Result.success(Unit)
+        } else {
+            Result.failure(Exception("Failed to kick member"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
-    suspend fun rejectMember(groupId: Long, userId: Long): Response<Void> {
-        return groupApi.rejectMember(groupId, userId)
+    suspend fun getPendingMembers(groupId: Long): Result<List<GroupMemberDto>> = try {
+        val response = groupApi.getPendingMembers(groupId)
+        if (response.isSuccessful && response.body() != null) {
+            Result.success(response.body()!!)
+        } else {
+            Result.failure(Exception("Failed to fetch pending members"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    suspend fun approveMember(groupId: Long, userId: Long): Result<Unit> = try {
+        val response = groupApi.approveMember(groupId, userId)
+        if (response.isSuccessful) {
+            Result.success(Unit)
+        } else {
+            Result.failure(Exception("Failed to approve member"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    suspend fun rejectMember(groupId: Long, userId: Long): Result<Unit> = try {
+        val response = groupApi.rejectMember(groupId, userId)
+        if (response.isSuccessful) {
+            Result.success(Unit)
+        } else {
+            Result.failure(Exception("Failed to reject member"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 }

@@ -81,20 +81,17 @@ interface GroupApi {
     ): GroupNoticeDto // 성공 시 수정된 GroupNoticeDto 반환
 
     @GET("/api/groups/{groupId}/members")
-    suspend fun getGroupMembers(@Path("groupId") groupId: Long): List<GroupMemberDto>
+    suspend fun getGroupMembers(@Path("groupId") groupId: Long): Response<List<GroupMemberDto>>
+
+    @DELETE("/api/groups/{groupId}/members/{userId}")
+    suspend fun kickMember(@Path("groupId") groupId: Long, @Path("userId") userId: Long): Response<Unit>
 
     @GET("/api/groups/{groupId}/pending-members")
-    suspend fun getPendingMembers(@Path("groupId") groupId: Long): List<GroupMemberDto>
+    suspend fun getPendingMembers(@Path("groupId") groupId: Long): Response<List<GroupMemberDto>>
 
     @POST("/api/groups/{groupId}/members/{userId}/approve")
-    suspend fun approveMember(
-        @Path("groupId") groupId: Long,
-        @Path("userId") userId: Long
-    ): Response<Void>
+    suspend fun approveMember(@Path("groupId") groupId: Long, @Path("userId") userId: Long): Response<Unit>
 
     @POST("/api/groups/{groupId}/members/{userId}/reject")
-    suspend fun rejectMember(
-        @Path("groupId") groupId: Long,
-        @Path("userId") userId: Long
-    ): Response<Void>
+    suspend fun rejectMember(@Path("groupId") groupId: Long, @Path("userId") userId: Long): Response<Unit>
 }

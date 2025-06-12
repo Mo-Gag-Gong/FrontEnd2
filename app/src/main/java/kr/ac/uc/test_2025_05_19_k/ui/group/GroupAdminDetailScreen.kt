@@ -1,7 +1,5 @@
-// app/src/main/java/kr/ac/uc/test_2025_05_19_k/ui/group/GroupAdminDetailScreen.kt
 package kr.ac.uc.test_2025_05_19_k.ui.group
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -14,29 +12,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.viewmodel.GroupAdminDetailViewModel
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Card
-import androidx.compose.material3.Divider
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -55,13 +51,9 @@ fun GroupAdminDetailScreen(
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(selectedTabIndex) {
-        when (selectedTabIndex) {
-            0 -> viewModel.fetchNoticesFirstPage()
-            // TODO: 다른 탭 선택 시 해당 데이터 로드 함수 호출
-            1 -> Log.d("AdminDetail", "멤버 탭 선택됨")
-            2 -> Log.d("AdminDetail", "그룹 목표 탭 선택됨")
-        }
+    // 화면이 처음 그려질 때 공지사항 목록을 불러옵니다.
+    LaunchedEffect(key1 = Unit) {
+        viewModel.fetchNoticesFirstPage()
     }
 
     Scaffold(
@@ -93,8 +85,6 @@ fun GroupAdminDetailScreen(
                         selected = (selectedTabIndex == index),
                         onClick = { selectedTabIndex = index },
                         label = { Text(title) },
-                        // Add the enabled parameter here
-                        enabled = true, // Or some other logic if needed
                         shape = RoundedCornerShape(50),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color.Black,
@@ -107,28 +97,24 @@ fun GroupAdminDetailScreen(
                 }
             }
 
-            // 선택된 탭에 따라 다른 관리 기능 화면 표시
+            // 선택된 탭에 따라 다른 관리 기능 화면 표시 (UI 컨텍스트 내에서 호출)
             when (selectedTabIndex) {
-                0 -> {
-                    // ViewModel로부터 공지사항 관련 상태 구독
-                    val notices by viewModel.groupNotices.collectAsState()
-                    val isLoadingNotices by viewModel.isLoadingNotices.collectAsState()
-                    AdminNoticesScreen(
-                        navController = navController,
-                        groupId = groupId,
-                        viewModel = viewModel
-                    )
-                }
+                0 -> AdminNoticesScreen(navController = navController, groupId = groupId, viewModel = viewModel)
+                1 -> MembersTab(viewModel = viewModel, navController = navController, groupId = groupId)
+                2 -> PlaceholderTab(name = "그룹 목표")
+                3 -> PlaceholderTab(name = "그룹 채팅")
+                4 -> PlaceholderTab(name = "그룹 모임")
             }
         }
     }
 }
 
+
 @Composable
 fun AdminNoticesScreen(
     navController: NavController,
     groupId: Long,
-    viewModel: GroupAdminDetailViewModel = hiltViewModel()
+    viewModel: GroupAdminDetailViewModel
 ) {
     val notices by viewModel.groupNotices.collectAsState()
     val isLoading by viewModel.isLoadingNotices.collectAsState()
@@ -176,7 +162,6 @@ fun AdminNoticesScreen(
                     AdminNoticeCard(
                         notice = notice,
                         onEdit = { selectedNotice ->
-                            // URL 파라미터로 전달하기 위해 인코딩
                             val encodedTitle = URLEncoder.encode(selectedNotice.title, StandardCharsets.UTF_8.toString())
                             val encodedContent = URLEncoder.encode(selectedNotice.content, StandardCharsets.UTF_8.toString())
                             navController.navigate("notice_edit/${selectedNotice.groupId}/${selectedNotice.noticeId}?title=${encodedTitle}&content=${encodedContent}")
@@ -189,10 +174,8 @@ fun AdminNoticesScreen(
             }
         }
 
-        // 공지사항 작성 FAB
         FloatingActionButton(
             onClick = {
-                // 공지사항 작성 화면으로 이동
                 navController.navigate("notice_create/$groupId")
             },
             modifier = Modifier
@@ -204,11 +187,10 @@ fun AdminNoticesScreen(
     }
 }
 
-// 공지사항 카드 Composable
 @Composable
 fun AdminNoticeCard(
     notice: GroupNoticeDto,
-    onEdit: (notice: GroupNoticeDto) -> Unit, // 파라미터로 notice 객체 전달
+    onEdit: (notice: GroupNoticeDto) -> Unit,
     onDelete: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -223,7 +205,6 @@ fun AdminNoticeCard(
             Divider(modifier = Modifier.padding(vertical = 8.dp))
             Text(notice.content, style = MaterialTheme.typography.bodyMedium)
 
-            // 수정/삭제 버튼
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -237,40 +218,66 @@ fun AdminNoticeCard(
     }
 }
 
-
-
-// 각 탭별 관리 화면 플레이스홀더 (이전과 동일)
 @Composable
-fun AdminNoticesScreen(navController: NavController, groupId: Long) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("공지사항 관리 화면 (그룹 ID: $groupId)", style = MaterialTheme.typography.headlineSmall)
+fun MembersTab(
+    viewModel: GroupAdminDetailViewModel,
+    navController: NavController,
+    groupId: Long
+) {
+    val members by viewModel.groupMembers.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.fetchGroupMembers()
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Button(
+            onClick = { navController.navigate("group_member_manage/$groupId") },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("스터디 신청 목록 보기")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text("멤버 목록", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(members) { member ->
+                MemberCard(member = member) {
+                    viewModel.kickMember(member.userId)
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun AdminMembersScreen(navController: NavController, groupId: Long) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("멤버 관리 화면 (그룹 ID: $groupId)", style = MaterialTheme.typography.headlineSmall)
+fun MemberCard(member: GroupMemberDto, onKick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(member.userName, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "가입일: ${member.joinDate}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+            IconButton(onClick = onKick) {
+                Icon(Icons.Default.Cancel, contentDescription = "추방", tint = Color.Red)
+            }
+        }
     }
 }
 
 @Composable
-fun AdminGoalsScreen(navController: NavController, groupId: Long) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("그룹 목표 관리 화면 (그룹 ID: $groupId)", style = MaterialTheme.typography.headlineSmall)
-    }
-}
-
-@Composable
-fun AdminChatScreen(navController: NavController, groupId: Long) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("채팅 관리 화면 (그룹 ID: $groupId)", style = MaterialTheme.typography.headlineSmall)
-    }
-}
-
-@Composable
-fun AdminMeetingsScreen(navController: NavController, groupId: Long) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("모임 관리 화면 (그룹 ID: $groupId)", style = MaterialTheme.typography.headlineSmall)
+fun PlaceholderTab(name: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text("$name 기능은 구현 예정입니다.")
     }
 }

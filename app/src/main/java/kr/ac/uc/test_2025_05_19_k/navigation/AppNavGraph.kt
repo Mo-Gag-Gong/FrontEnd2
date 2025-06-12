@@ -33,6 +33,7 @@ import kr.ac.uc.test_2025_05_19_k.ui.group.NoticeEditScreen
 
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import kr.ac.uc.test_2025_05_19_k.ui.group.GroupMemberManageScreen
 import kr.ac.uc.test_2025_05_19_k.viewmodel.InterestSelectViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.OnboardingViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.ProfileInputViewModel
@@ -295,6 +296,14 @@ fun AppNavGraph(
                     navController.navigate("group_detail/$groupId")
                 }
             )
+        }
+
+// 아래 내용 추가
+        composable(
+            "group_member_manage/{groupId}",
+            arguments = listOf(navArgument("groupId") { type = NavType.LongType })
+        ) {
+            GroupMemberManageScreen(navController = navController)
         }
     }
 }
