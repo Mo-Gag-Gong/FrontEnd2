@@ -13,6 +13,7 @@ import kr.ac.uc.test_2025_05_19_k.model.StudyGroupDetail
 import kr.ac.uc.test_2025_05_19_k.repository.GroupRepository
 import javax.inject.Inject
 import android.util.Log
+import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto // GroupNoticeDto 임포트
 
@@ -51,6 +52,14 @@ class GroupAdminDetailViewModel @Inject constructor(
 
     private var noticeIdToDelete: Long? = null
 
+    private val _goals = MutableStateFlow<List<GroupGoalDto>>(emptyList())
+    val goals: StateFlow<List<GroupGoalDto>> = _goals.asStateFlow()
+
+    private val _isLoadingGoals = MutableStateFlow(false)
+    val isLoadingGoals: StateFlow<Boolean> = _isLoadingGoals.asStateFlow()
+
+    private val _selectedTabIndex = MutableStateFlow(0) // 기본값 0 (첫 번째 탭)
+    val selectedTabIndex: StateFlow<Int> = _selectedTabIndex.asStateFlow()
 
     init {
         if (groupId != -1L) {
@@ -59,6 +68,9 @@ class GroupAdminDetailViewModel @Inject constructor(
             fetchNoticesFirstPage()
             fetchGroupMembers()
         }
+    }
+    fun onTabSelected(index: Int) {
+        _selectedTabIndex.value = index
     }
 
     private fun fetchGroupDetails() {
@@ -162,6 +174,43 @@ class GroupAdminDetailViewModel @Inject constructor(
                 onError("오류가 발생하여 공지사항을 삭제하지 못했습니다.")
             } finally {
                 onDismissDeleteDialog() // 대화상자 닫기
+            }
+        }
+    }
+
+    fun fetchGroupGoals() {
+        // 이미 로딩했거나 로딩 중이면 다시 호출하지 않음
+        if (_isLoadingGoals.value || _goals.value.isNotEmpty()) return
+
+        viewModelScope.launch {
+            _isLoadingGoals.value = true
+            try {
+                // Repository에 추가했던 getGroupGoals 함수 사용
+                val goalList = groupRepository.getGroupGoals(groupId.toString())
+                _goals.value = goalList
+            } catch (e: Exception) {
+                Log.e("AdminDetailVM", "그룹 목표 로드 실패", e)
+                // TODO: 에러 상태 관리
+            } finally {
+                _isLoadingGoals.value = false
+            }
+        }
+    }
+
+    fun fetchGroupGoals(forceRefresh: Boolean = false) {
+        // 강제 새로고침이 아니면서, 이미 목록이 있거나 로딩 중이면 return
+        if (!forceRefresh && (_isLoadingGoals.value || _goals.value.isNotEmpty())) return
+
+        viewModelScope.launch {
+            _isLoadingGoals.value = true
+            try {
+                // 기존 로직은 동일
+                val goalList = groupRepository.getGroupGoals(groupId.toString())
+                _goals.value = goalList
+            } catch (e: Exception) {
+                // ...
+            } finally {
+                _isLoadingGoals.value = false
             }
         }
     }

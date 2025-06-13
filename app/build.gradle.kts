@@ -57,6 +57,7 @@ dependencies {
         // Kotlin & Coroutines
         implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.23")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+        implementation("androidx.compose.runtime:runtime-livedata:1.6.7")
 
         // Jetpack Compose (BOM 방식)
         implementation(platform("androidx.compose:compose-bom:2024.09.00"))

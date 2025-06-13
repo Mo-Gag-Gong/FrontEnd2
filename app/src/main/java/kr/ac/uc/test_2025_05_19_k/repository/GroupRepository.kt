@@ -1,6 +1,7 @@
 // mo-gag-gong/frontend/frontend-dev-hj/app/src/main/java/kr/ac/uc/test_2025_05_19_k/repository/GroupRepository.kt
 package kr.ac.uc.test_2025_05_19_k.repository
 
+import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.model.PageGroupNoticeDto
@@ -9,6 +10,7 @@ import kr.ac.uc.test_2025_05_19_k.model.StudyGroupDetail
 import kr.ac.uc.test_2025_05_19_k.network.api.GroupApi
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupCreateRequest
 import kr.ac.uc.test_2025_05_19_k.model.PageStudyGroupDto // PageStudyGroupDto 임포트
+import kr.ac.uc.test_2025_05_19_k.model.request.GroupGoalCreateRequest
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupNoticeCreateRequest
 import retrofit2.Response
 import javax.inject.Inject
@@ -120,5 +122,52 @@ class GroupRepository @Inject constructor(
         }
     } catch (e: Exception) {
         Result.failure(e)
+    }
+
+    suspend fun getGroupGoals(groupId: String): List<GroupGoalDto> {
+        val response = groupApi.getGroupGoals(groupId)
+        if (response.isSuccessful) {
+            return response.body()!!
+        } else {
+            throw Exception("Failed to get group goals")
+        }
+    }
+
+    suspend fun createGoal(groupId: String, request: GroupGoalCreateRequest): GroupGoalDto {
+        val response = groupApi.createGoal(groupId, request)
+        if (response.isSuccessful) {
+            return response.body()!!
+        } else {
+            throw Exception("Failed to create goal")
+        }
+    }
+
+    suspend fun getGoalDetails(groupId: String, goalId: String): GroupGoalDto {
+        val response = groupApi.getGoalDetails(groupId, goalId)
+        if (response.isSuccessful) {
+            return response.body()!!
+        } else {
+            throw Exception("Failed to get goal details")
+        }
+    }
+
+    suspend fun updateGoal(groupId: String, goalId: String, request: GroupGoalCreateRequest): GroupGoalDto {
+        val response = groupApi.updateGoal(groupId, goalId, request)
+        if (response.isSuccessful) {
+            return response.body()!!
+        } else {
+            throw Exception("Failed to update goal")
+        }
+    }
+
+    suspend fun deleteGoal(groupId: String, goalId: String) {
+        groupApi.deleteGoal(groupId, goalId)
+    }
+
+    suspend fun toggleGoalDetail(groupId: String, goalId: String, detailId: String) {
+        val response = groupApi.toggleGoalDetail(groupId, goalId, detailId)
+        if (!response.isSuccessful) {
+            throw Exception("Failed to toggle goal detail")
+        }
     }
 }

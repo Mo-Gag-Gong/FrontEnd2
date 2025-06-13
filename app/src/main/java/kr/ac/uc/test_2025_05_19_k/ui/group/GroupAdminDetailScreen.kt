@@ -40,6 +40,7 @@ import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.viewmodel.GroupAdminDetailViewModel
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 
 // 탭 제목 리스트
 private val adminDetailTabs = listOf("공지 사항", "멤버", "그룹 목표", "채팅", "모임")
@@ -53,10 +54,8 @@ fun GroupAdminDetailScreen(
 ) {
     val groupDetail by viewModel.groupDetail.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val selectedTabIndex by viewModel.selectedTabIndex.collectAsState()
 
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-
-    // 화면이 처음 그려질 때 공지사항 목록을 불러옵니다.
     LaunchedEffect(key1 = Unit) {
         viewModel.fetchNoticesFirstPage()
     }
@@ -88,7 +87,7 @@ fun GroupAdminDetailScreen(
                 adminDetailTabs.forEachIndexed { index, title ->
                     FilterChip(
                         selected = (selectedTabIndex == index),
-                        onClick = { selectedTabIndex = index },
+                        onClick = { viewModel.onTabSelected(index) },
                         label = { Text(title) },
                         shape = RoundedCornerShape(50),
                         colors = FilterChipDefaults.filterChipColors(
@@ -106,7 +105,7 @@ fun GroupAdminDetailScreen(
             when (selectedTabIndex) {
                 0 -> AdminNoticesScreen(navController = navController, groupId = groupId, viewModel = viewModel)
                 1 -> MembersTab(viewModel = viewModel, navController = navController, groupId = groupId)
-                2 -> PlaceholderTab(name = "그룹 목표")
+                2 -> AdminGoalsScreen(navController = navController, groupId = groupId, viewModel = viewModel)
                 3 -> PlaceholderTab(name = "그룹 채팅")
                 4 -> PlaceholderTab(name = "그룹 모임")
             }

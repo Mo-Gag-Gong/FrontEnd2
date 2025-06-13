@@ -33,6 +33,9 @@ import kr.ac.uc.test_2025_05_19_k.ui.group.NoticeEditScreen
 
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalCreateEditScreen
+import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalDetailScreen
+import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalListScreen
 import kr.ac.uc.test_2025_05_19_k.ui.group.GroupMemberDetailScreen
 import kr.ac.uc.test_2025_05_19_k.ui.group.GroupMemberManageScreen
 import kr.ac.uc.test_2025_05_19_k.viewmodel.InterestSelectViewModel
@@ -315,6 +318,53 @@ fun AppNavGraph(
         ) {
             // GroupMemberDetailScreen을 호출하는 부분은 그대로 둡니다.
             GroupMemberDetailScreen(navController = navController)
+        }
+
+        composable(
+            route = "group_goal_list/{groupId}",
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId")
+            if (groupId != null) {
+                GroupGoalListScreen(navController = navController, groupId = groupId)
+            }
+        }
+
+        // 그룹 목표 상세 화면
+        composable(
+            route = "group_goal_detail/{groupId}/{goalId}",
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType },
+                navArgument("goalId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId")
+            val goalId = backStackEntry.arguments?.getString("goalId")
+            if (groupId != null && goalId != null) {
+                GroupGoalDetailScreen(navController = navController, groupId = groupId, goalId = goalId)
+            }
+        }
+
+        // 그룹 목표 생성 화면
+        composable(
+            route = "goal_create/{groupId}",
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId")
+            // goalId는 선택적이므로, 이 라우트에서는 ViewModel이 null로 받게 됩니다.
+            GroupGoalCreateEditScreen(navController = navController)
+        }
+
+        // 그룹 목표 수정 화면
+        composable(
+            route = "goal_edit/{groupId}/{goalId}",
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType },
+                navArgument("goalId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            // goalId가 존재하므로, ViewModel은 자동으로 수정 모드로 동작합니다.
+            GroupGoalCreateEditScreen(navController = navController)
         }
     }
 

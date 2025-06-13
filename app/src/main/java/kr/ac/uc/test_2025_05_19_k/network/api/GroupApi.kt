@@ -1,6 +1,7 @@
 // mo-gag-gong/frontend/frontend-dev-hj/app/src/main/java/kr/ac/uc/test_2025_05_19_k/network/api/GroupApi.kt
 package kr.ac.uc.test_2025_05_19_k.network.api
 
+import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.model.PageGroupNoticeDto
@@ -8,6 +9,7 @@ import kr.ac.uc.test_2025_05_19_k.model.PageStudyGroupDto
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroup
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroupDetail
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupCreateRequest
+import kr.ac.uc.test_2025_05_19_k.model.request.GroupGoalCreateRequest
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupNoticeCreateRequest
 import retrofit2.Response
 import retrofit2.http.GET
@@ -94,4 +96,39 @@ interface GroupApi {
 
     @POST("/api/groups/{groupId}/members/{userId}/reject")
     suspend fun rejectMember(@Path("groupId") groupId: Long, @Path("userId") userId: Long): Response<Unit>
+
+    @GET("api/groups/{groupId}/goals")
+    suspend fun getGroupGoals(@Path("groupId") groupId: String): Response<List<GroupGoalDto>>
+
+    @POST("api/groups/{groupId}/goals")
+    suspend fun createGoal(
+        @Path("groupId") groupId: String,
+        @Body request: GroupGoalCreateRequest
+    ): Response<GroupGoalDto>
+
+    @GET("api/groups/{groupId}/goals/{goalId}")
+    suspend fun getGoalDetails(
+        @Path("groupId") groupId: String,
+        @Path("goalId") goalId: String
+    ): Response<GroupGoalDto>
+
+    @PUT("api/groups/{groupId}/goals/{goalId}")
+    suspend fun updateGoal(
+        @Path("groupId") groupId: String,
+        @Path("goalId") goalId: String,
+        @Body request: GroupGoalCreateRequest
+    ): Response<GroupGoalDto>
+
+    @DELETE("api/groups/{groupId}/goals/{goalId}")
+    suspend fun deleteGoal(
+        @Path("groupId") groupId: String,
+        @Path("goalId") goalId: String
+    ): Response<Unit>
+
+    @POST("api/groups/{groupId}/goals/{goalId}/details/{detailId}/toggle")
+    suspend fun toggleGoalDetail(
+        @Path("groupId") groupId: String,
+        @Path("goalId") goalId: String,
+        @Path("detailId") detailId: String
+    ): Response<Unit>
 }
