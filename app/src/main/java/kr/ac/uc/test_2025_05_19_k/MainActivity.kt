@@ -1,9 +1,13 @@
 // MainActivity.kt
 package kr.ac.uc.test_2025_05_19_k
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -11,9 +15,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.data.local.UserPreference
 import kr.ac.uc.test_2025_05_19_k.navigation.AppNavGraph
 import kr.ac.uc.test_2025_05_19_k.navigation.BottomNavItem
@@ -21,6 +28,10 @@ import kr.ac.uc.test_2025_05_19_k.navigation.BottomNavigationBar
 import kr.ac.uc.test_2025_05_19_k.navigation.bottomNavItems
 import kr.ac.uc.test_2025_05_19_k.ui.theme.MogackoTheme
 import kr.ac.uc.test_2025_05_19_k.repository.TokenManager
+import kr.ac.uc.test_2025_05_19_k.util.AppEvents
+import kr.ac.uc.test_2025_05_19_k.util.RefreshEvent
+import kr.ac.uc.test_2025_05_19_k.util.getCityNameFromLocation
+import kr.ac.uc.test_2025_05_19_k.util.getCurrentLocation
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -30,6 +41,17 @@ class MainActivity : ComponentActivity() {
     lateinit var userPreference: UserPreference
     @Inject
     lateinit var tokenManager: TokenManager
+    @Inject
+    lateinit var appEvents: AppEvents
+    private val requestPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                Log.d("MainActivity", "위치 권한 승인됨. 위치 조회 재시도.")
+                lifecycleScope.launch { fetchAndSaveUserLocation() }
+            } else {
+                Log.d("MainActivity", "위치 권한 거부됨.")
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +81,45 @@ class MainActivity : ComponentActivity() {
                         startDestination = startDestination
                     )
                 }
+            }
+
+        }
+        checkLoginAndFetchLocation()
+    }
+    private fun checkLoginAndFetchLocation() {
+        lifecycleScope.launch {
+            if (!tokenManager.getAccessToken().isNullOrBlank()) {
+                when {
+                    ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED -> {
+                        fetchAndSaveUserLocation()
+                    }
+                    else -> {
+                        requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun fetchAndSaveUserLocation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            val location = getCurrentLocation(this@MainActivity) //
+            if (location != null) {
+                val cityName = getCityNameFromLocation(this@MainActivity, location.latitude, location.longitude) //
+                if (!cityName.isNullOrBlank()) {
+                    userPreference.saveRegion(cityName) //
+                    Log.i("MainActivity", "현재 위치를 성공적으로 저장했습니다: $cityName")
+
+                    // ▼▼▼ [추가] 위치 저장 후 갱신 이벤트 발생시키기 ▼▼▼
+                    appEvents.emitEvent(RefreshEvent.LocationUpdated)
+                } else {
+                    Log.w("MainActivity", "좌표를 지역명으로 변환하는 데 실패했습니다.")
+                }
+            } else {
+                Log.w("MainActivity", "현재 위치 정보를 가져올 수 없습니다.")
             }
         }
     }

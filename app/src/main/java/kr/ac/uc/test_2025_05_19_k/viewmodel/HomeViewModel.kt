@@ -16,13 +16,16 @@ import kr.ac.uc.test_2025_05_19_k.model.PageStudyGroupDto
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroup
 import kr.ac.uc.test_2025_05_19_k.repository.GroupRepository
 import kr.ac.uc.test_2025_05_19_k.repository.InterestRepository
+import kr.ac.uc.test_2025_05_19_k.util.AppEvents
+import kr.ac.uc.test_2025_05_19_k.util.RefreshEvent
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     application: Application,
     private val groupRepository: GroupRepository,
-    private val interestRepository: InterestRepository
+    private val interestRepository: InterestRepository,
+    private val appEvents: AppEvents
 ) : AndroidViewModel(application) {
 
     private val userPreference = UserPreference(application)
@@ -60,6 +63,7 @@ class HomeViewModel @Inject constructor(
     init {
         initUser()
         loadRecentSearches()
+        observeAppEvents()
     }
 
     fun initUser() {
@@ -74,6 +78,19 @@ class HomeViewModel @Inject constructor(
                 Log.e("HomeViewModel", "초기 데이터 불러오기 실패: ${e.message}")
                 _groupList.value = emptyList()
                 _interests.value = emptyList()
+            }
+        }
+    }
+    private fun observeAppEvents() {
+        viewModelScope.launch {
+            appEvents.events.collect { event ->
+                when (event) {
+                    is RefreshEvent.LocationUpdated -> {
+                        Log.d("HomeViewModel", "위치 변경 이벤트 수신. 데이터 재초기화.")
+                        // 사용자 정보와 그룹 목록을 모두 새로 불러오는 initUser() 호출
+                        initUser()
+                    }
+                }
             }
         }
     }
