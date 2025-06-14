@@ -47,7 +47,7 @@ fun GroupGoalCreateEditScreen(
                                 ?.set("should_refresh_goals", true)
                             navController.popBackStack()
                         }
-                    }) {
+                    },enabled = uiState.isFormValid) {
                         Text("완료")
                     }
                 }

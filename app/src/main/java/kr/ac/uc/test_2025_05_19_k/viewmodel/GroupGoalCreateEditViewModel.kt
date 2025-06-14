@@ -22,11 +22,12 @@ data class GoalFormState(
     val title: String = "",
     val startDate: String = "",
     val endDate: String = "",
-    val details: List<String> = listOf(""), // 세부 목표는 최소 1개부터 시작
+    val details: List<String> = listOf(""),
     val isEditMode: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val showEndDateWarning: Boolean = false
+    val showEndDateWarning: Boolean = false,
+    val isFormValid: Boolean = false // ▼▼▼ [추가] 폼 유효성 상태 변수
 )
 
 @HiltViewModel
@@ -59,11 +60,15 @@ class GroupGoalCreateEditViewModel @Inject constructor(
         val shouldShowWarning = selectedEndDate != null && selectedEndDate.before(today)
 
         _uiState.update {
-            it.copy(
-                endDate = date,
-                showEndDateWarning = shouldShowWarning
-            )
+            val newState = it.copy(endDate = date, showEndDateWarning = shouldShowWarning)
+            newState.copy(isFormValid = validateForm(newState))
         }
+    }
+
+    private fun validateForm(state: GoalFormState): Boolean {
+        return state.title.isNotBlank() &&
+                state.startDate.isNotBlank() &&
+                state.endDate.isNotBlank()
     }
 
     private fun loadGoalForEditing() {
@@ -72,13 +77,15 @@ class GroupGoalCreateEditViewModel @Inject constructor(
             try {
                 val goal = groupRepository.getGoalDetails(groupId, goalId!!)
                 _uiState.update {
-                    it.copy(
+                    val loadedState = it.copy(
                         title = goal.title ?: "",
                         startDate = goal.startDate ?: "",
                         endDate = goal.endDate ?: "",
                         details = goal.details.map { detail -> detail.description ?: "" },
                         isLoading = false
                     )
+                    // ▼▼▼ [추가] 로드된 데이터로 유효성 검사 ▼▼▼
+                    loadedState.copy(isFormValid = validateForm(loadedState))
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "기존 목표 정보를 불러오지 못했습니다.", isLoading = false) }
@@ -86,8 +93,18 @@ class GroupGoalCreateEditViewModel @Inject constructor(
         }
     }
 
-    fun onTitleChange(title: String) { _uiState.update { it.copy(title = title) } }
-    fun onStartDateChange(date: String) { _uiState.update { it.copy(startDate = date) } }
+    fun onTitleChange(title: String) {
+        _uiState.update {
+            val newState = it.copy(title = title)
+            newState.copy(isFormValid = validateForm(newState))
+        }
+    }
+    fun onStartDateChange(date: String) {
+        _uiState.update {
+            val newState = it.copy(startDate = date)
+            newState.copy(isFormValid = validateForm(newState))
+        }
+    }
     fun onDetailChange(index: Int, text: String) {
         val newDetails = _uiState.value.details.toMutableList()
         newDetails[index] = text
