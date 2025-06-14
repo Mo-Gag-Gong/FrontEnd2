@@ -15,11 +15,15 @@ import javax.inject.Inject
 import android.util.Log
 import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
-import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto // GroupNoticeDto 임포트
+import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
+import kr.ac.uc.test_2025_05_19_k.model.GroupChatDto
+import kr.ac.uc.test_2025_05_19_k.model.request.GroupChatCreateRequest
+import kr.ac.uc.test_2025_05_19_k.repository.TokenManager
 
 @HiltViewModel
 class GroupAdminDetailViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
+    private val tokenManager: TokenManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -60,6 +64,17 @@ class GroupAdminDetailViewModel @Inject constructor(
 
     private val _selectedTabIndex = MutableStateFlow(0) // 기본값 0 (첫 번째 탭)
     val selectedTabIndex: StateFlow<Int> = _selectedTabIndex.asStateFlow()
+
+    private val _chatMessages = MutableStateFlow<List<GroupChatDto>>(emptyList())
+    val chatMessages: StateFlow<List<GroupChatDto>> = _chatMessages.asStateFlow()
+
+    private val _chatInputText = MutableStateFlow("")
+    val chatInputText: StateFlow<String> = _chatInputText.asStateFlow()
+
+    val myUserId: Long? = tokenManager.getUserId()
+
+    private var currentChatPage = 0
+    private var isChatLastPage = false
 
     init {
         if (groupId != -1L) {
@@ -211,6 +226,41 @@ class GroupAdminDetailViewModel @Inject constructor(
                 // ...
             } finally {
                 _isLoadingGoals.value = false
+            }
+        }
+    }
+
+    fun fetchInitialChats() {
+        if (_chatMessages.value.isNotEmpty()) return
+        currentChatPage = 0
+        viewModelScope.launch {
+            try {
+                val chatPage = groupRepository.getGroupChats(groupId, currentChatPage)
+                _chatMessages.value = chatPage.content.reversed() // 최신 메시지가 아래로 가도록 역순 정렬
+                isChatLastPage = chatPage.last
+            } catch (e: Exception) {
+                Log.e("AdminDetailVM", "채팅 로드 실패", e)
+            }
+        }
+    }
+
+    fun onChatInputChanged(text: String) {
+        _chatInputText.value = text
+    }
+
+    fun sendChatMessage() {
+        if (_chatInputText.value.isBlank()) return
+
+        val request = GroupChatCreateRequest(message = _chatInputText.value)
+        _chatInputText.value = "" // 입력창 즉시 비우기
+
+        viewModelScope.launch {
+            try {
+                groupRepository.sendChatMessage(groupId, request)
+                // 메시지 전송 성공 후, 최신 내역을 다시 불러옴
+                fetchInitialChats()
+            } catch (e: Exception) {
+                Log.e("AdminDetailVM", "메시지 전송 실패", e)
             }
         }
     }

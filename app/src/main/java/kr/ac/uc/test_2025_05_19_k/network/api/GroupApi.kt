@@ -1,13 +1,16 @@
 // mo-gag-gong/frontend/frontend-dev-hj/app/src/main/java/kr/ac/uc/test_2025_05_19_k/network/api/GroupApi.kt
 package kr.ac.uc.test_2025_05_19_k.network.api
 
+import kr.ac.uc.test_2025_05_19_k.model.GroupChatDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
+import kr.ac.uc.test_2025_05_19_k.model.PageGroupChatDto
 import kr.ac.uc.test_2025_05_19_k.model.PageGroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.model.PageStudyGroupDto
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroup
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroupDetail
+import kr.ac.uc.test_2025_05_19_k.model.request.GroupChatCreateRequest
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupCreateRequest
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupGoalCreateRequest
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupNoticeCreateRequest
@@ -131,4 +134,17 @@ interface GroupApi {
         @Path("goalId") goalId: String,
         @Path("detailId") detailId: String
     ): Response<Unit>
+
+    @GET("api/groups/{groupId}/chats")
+    suspend fun getGroupChats(
+        @Path("groupId") groupId: Long,
+        @Query("page") page: Int,
+        @Query("size") size: Int = 20
+    ): Response<PageGroupChatDto>
+
+    @POST("api/groups/{groupId}/chats")
+    suspend fun sendChatMessage(
+        @Path("groupId") groupId: Long,
+        @Body request: GroupChatCreateRequest
+    ): Response<GroupChatDto>
 }

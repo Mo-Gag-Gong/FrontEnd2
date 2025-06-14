@@ -106,7 +106,7 @@ fun GroupAdminDetailScreen(
                 0 -> AdminNoticesScreen(navController = navController, groupId = groupId, viewModel = viewModel)
                 1 -> MembersTab(viewModel = viewModel, navController = navController, groupId = groupId)
                 2 -> AdminGoalsScreen(navController = navController, groupId = groupId, viewModel = viewModel)
-                3 -> PlaceholderTab(name = "그룹 채팅")
+                3 -> ChatTabScreen(viewModel = viewModel)
                 4 -> PlaceholderTab(name = "그룹 모임")
             }
         }

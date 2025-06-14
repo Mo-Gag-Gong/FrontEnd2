@@ -1,15 +1,18 @@
 // mo-gag-gong/frontend/frontend-dev-hj/app/src/main/java/kr/ac/uc/test_2025_05_19_k/repository/GroupRepository.kt
 package kr.ac.uc.test_2025_05_19_k.repository
 
+import kr.ac.uc.test_2025_05_19_k.model.GroupChatDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
+import kr.ac.uc.test_2025_05_19_k.model.PageGroupChatDto
 import kr.ac.uc.test_2025_05_19_k.model.PageGroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroup // StudyGroup은 이미 임포트 되어 있을 것입니다.
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroupDetail
 import kr.ac.uc.test_2025_05_19_k.network.api.GroupApi
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupCreateRequest
 import kr.ac.uc.test_2025_05_19_k.model.PageStudyGroupDto // PageStudyGroupDto 임포트
+import kr.ac.uc.test_2025_05_19_k.model.request.GroupChatCreateRequest
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupGoalCreateRequest
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupNoticeCreateRequest
 import retrofit2.Response
@@ -168,6 +171,24 @@ class GroupRepository @Inject constructor(
         val response = groupApi.toggleGoalDetail(groupId, goalId, detailId)
         if (!response.isSuccessful) {
             throw Exception("Failed to toggle goal detail")
+        }
+    }
+
+    suspend fun getGroupChats(groupId: Long, page: Int): PageGroupChatDto {
+        val response = groupApi.getGroupChats(groupId, page)
+        if (response.isSuccessful) {
+            return response.body()!!
+        } else {
+            throw Exception("Failed to get chat messages")
+        }
+    }
+
+    suspend fun sendChatMessage(groupId: Long, request: GroupChatCreateRequest): GroupChatDto {
+        val response = groupApi.sendChatMessage(groupId, request)
+        if (response.isSuccessful) {
+            return response.body()!!
+        } else {
+            throw Exception("Failed to send message")
         }
     }
 }
