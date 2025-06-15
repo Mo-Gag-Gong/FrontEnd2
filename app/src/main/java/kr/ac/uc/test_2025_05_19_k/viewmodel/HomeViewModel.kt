@@ -273,4 +273,13 @@ class HomeViewModel @Inject constructor(
         userPreference.clearRecentSearches()
         loadRecentSearches()
     }
+    suspend fun applyToGroup(groupId: Long) {
+        try {
+            groupRepository.applyToGroup(groupId)
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Failed to apply to group", e)
+            // 에러를 다시 던져서 UI단에서 처리할 수 있게 함
+            throw e
+        }
+    }
 }

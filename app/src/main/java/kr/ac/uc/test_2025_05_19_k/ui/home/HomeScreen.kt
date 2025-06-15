@@ -1,6 +1,5 @@
 package kr.ac.uc.test_2025_05_19_k.ui.home
 
-import android.util.Log
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,61 +10,66 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroup
 import kr.ac.uc.test_2025_05_19_k.ui.common.HomeGroupCard
 import kr.ac.uc.test_2025_05_19_k.ui.common.InterestTag
+import kr.ac.uc.test_2025_05_19_k.ui.group.detail.GroupApplySheetContent
 import kr.ac.uc.test_2025_05_19_k.viewmodel.HomeViewModel
-import androidx.compose.ui.graphics.Color
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
-    viewModel: HomeViewModel = hiltViewModel(),
-    onGroupClick: (StudyGroup) -> Unit,
-    onCreateGroupClick: () -> Unit,
-    onNavigateToSearch: () -> Unit,
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     val region by viewModel.region.collectAsState()
     val interests by viewModel.interests.collectAsState()
     val selectedInterest by viewModel.selectedInterest.collectAsState()
     val groupList by viewModel.groupList.collectAsState()
     val isLoadingInitial by viewModel.isLoadingInitial.collectAsState()
-    val isLoadingNextPage by viewModel.isLoadingNextPage.collectAsState()
-    val isLastPage by viewModel.isLastPage.collectAsState()
-    val lazyListState = rememberLazyListState()
 
-    LaunchedEffect(lazyListState, isLoadingNextPage, isLastPage, groupList) {
-        snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-            .collect { lastVisibleItemIndex ->
-                val totalItemsCount = lazyListState.layoutInfo.totalItemsCount
-                if (groupList.isNotEmpty() && lastVisibleItemIndex != null &&
-                    lastVisibleItemIndex >= totalItemsCount - 3 &&
-                    !isLoadingInitial && !isLoadingNextPage && !isLastPage
-                ) {
-                    viewModel.loadNextGroupPage()
+    // ▼▼▼ [추가] BottomSheet 상태 관리를 위한 변수들 ▼▼▼
+    val sheetState = rememberModalBottomSheetState()
+    var selectedGroup by remember { mutableStateOf<StudyGroup?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // ▼▼▼ [추가] 선택된 그룹이 있을 때만 BottomSheet를 띄웁니다 ▼▼▼
+    if (selectedGroup != null) {
+        ModalBottomSheet(
+            onDismissRequest = { selectedGroup = null },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            GroupApplySheetContent(
+                group = selectedGroup!!,
+                onApply = {
+                    // TODO: 가입 신청 로직 연결 (ViewModel에 함수 추가 필요)
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        if (!sheetState.isVisible) {
+                            selectedGroup = null
+                        }
+                    }
                 }
-            }
+            )
+        }
     }
 
     Scaffold(
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = onCreateGroupClick,
+                onClick = { navController.navigate("group_create") },
                 containerColor = Color(0xFF00B2FF),
                 contentColor = Color.White,
-                text = { Text("만들기", fontWeight = FontWeight.Bold) },
+                text = { Text("만들기") },
                 icon = { Icon(Icons.Default.Add, contentDescription = "그룹 생성") }
             )
         }
@@ -87,7 +91,7 @@ fun HomeScreen(
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = onNavigateToSearch) {
+                IconButton(onClick = { navController.navigate("search") }) {
                     Icon(Icons.Default.Search, contentDescription = "검색", modifier = Modifier.size(28.dp))
                 }
             }
@@ -121,13 +125,8 @@ fun HomeScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else if (groupList.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("표시할 스터디 그룹이 없습니다.", style = MaterialTheme.typography.bodyLarge)
-                }
             } else {
                 LazyColumn(
-                    state = lazyListState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -135,20 +134,17 @@ fun HomeScreen(
                     items(groupList, key = { it.groupId }) { group ->
                         HomeGroupCard(
                             group = group,
-                            onClick = { onGroupClick(group) }
-                        )
-                    }
-                    if (isLoadingNextPage) {
-                        item {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 16.dp),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                CircularProgressIndicator()
+                            onClick = {
+                                // ▼▼▼ [수정] 클릭 시 BottomSheet를 띄우도록 로직 변경 ▼▼▼
+                                if (group.isMember) {
+                                    // 이미 가입한 그룹은 상세 화면으로 이동
+                                    navController.navigate("group_detail/${group.groupId}")
+                                } else {
+                                    // 가입하지 않은 그룹은 하단 시트를 표시
+                                    selectedGroup = group
+                                }
                             }
-                        }
+                        )
                     }
                 }
             }

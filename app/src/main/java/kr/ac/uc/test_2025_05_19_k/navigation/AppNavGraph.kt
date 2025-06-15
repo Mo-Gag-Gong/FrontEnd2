@@ -42,6 +42,7 @@ import kr.ac.uc.test_2025_05_19_k.viewmodel.InterestSelectViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.OnboardingViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.ProfileInputViewModel
 import kr.ac.uc.test_2025_05_19_k.ui.group.detail.GroupApplyScreen
+import kr.ac.uc.test_2025_05_19_k.viewmodel.HomeViewModel
 
 @Composable
 fun LogCurrentScreen(navController: NavController) {
@@ -182,24 +183,11 @@ fun AppNavGraph(
 
         // --- 하단 네비게이션 바가 있는 주요 화면 ---
         composable(BottomNavItem.Home.route) {
+            // ▼▼▼ [수정] HomeScreen이 HomeViewModel을 직접 사용하도록 변경 ▼▼▼
+            val homeViewModel: HomeViewModel = hiltViewModel()
             HomeScreen(
                 navController = navController,
-                // [수정] group 객체를 받아 isMember 값에 따라 분기 처리
-                onGroupClick = { group ->
-                    if (group.isMember) {
-                        // 이미 가입한 그룹 -> 참여자용 상세 탭 화면으로 이동
-                        navController.navigate("group_detail/${group.groupId}")
-                    } else {
-                        // 가입하지 않은 그룹 -> 가입 신청 화면으로 이동
-                        navController.navigate("group_apply/${group.groupId}")
-                    }
-                },
-                onCreateGroupClick = {
-                    navController.navigate("group_create")
-                },
-                onNavigateToSearch = {
-                    navController.navigate("search")
-                }
+                viewModel = homeViewModel
             )
         }
         composable(BottomNavItem.Schedule.route) { ScheduleScreen(navController = navController) }
@@ -301,14 +289,15 @@ fun AppNavGraph(
                 }
             )
         }
-        composable("search_result/{query}") { backStackEntry ->
+        composable(
+            route = "search_result/{query}",
+            arguments = listOf(navArgument("query") { type = NavType.StringType })
+        ) { backStackEntry ->
             val query = backStackEntry.arguments?.getString("query") ?: ""
+            // ▼▼▼ [수정] onGroupClick 파라미터 제거 ▼▼▼
             SearchResultScreen(
                 navController = navController,
-                searchQuery = query,
-                onGroupClick = { groupId ->
-                    navController.navigate("group_apply/$groupId")
-                }
+                searchQuery = query
             )
         }
 
