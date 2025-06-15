@@ -2,16 +2,7 @@ package kr.ac.uc.test_2025_05_19_k.ui.home
 
 import android.util.Log
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -19,15 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -35,15 +18,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroup
-import kr.ac.uc.test_2025_05_19_k.ui.common.GroupCard
+import kr.ac.uc.test_2025_05_19_k.ui.common.HomeGroupCard
 import kr.ac.uc.test_2025_05_19_k.ui.common.InterestTag
 import kr.ac.uc.test_2025_05_19_k.viewmodel.HomeViewModel
+import androidx.compose.ui.graphics.Color
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
@@ -69,27 +54,20 @@ fun HomeScreen(
                     lastVisibleItemIndex >= totalItemsCount - 3 &&
                     !isLoadingInitial && !isLoadingNextPage && !isLastPage
                 ) {
-                    Log.d("HomeScreen", "스크롤 끝 감지, 다음 페이지 로드 요청.")
                     viewModel.loadNextGroupPage()
                 }
             }
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(text = if (region.isNotBlank()) "$region 지역 스터디 추천" else "스터디 추천") },
-                actions = {
-                    IconButton(onClick = onNavigateToSearch) {
-                        Icon(Icons.Default.Search, contentDescription = "검색")
-                    }
-                }
-            )
-        },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCreateGroupClick, containerColor = MaterialTheme.colorScheme.primary) {
-                Icon(Icons.Default.Add, contentDescription = "그룹 생성")
-            }
+            ExtendedFloatingActionButton(
+                onClick = onCreateGroupClick,
+                containerColor = Color(0xFF00B2FF),
+                contentColor = Color.White,
+                text = { Text("만들기", fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.Add, contentDescription = "그룹 생성") }
+            )
         }
     ) { innerPadding ->
         Column(
@@ -97,36 +75,55 @@ fun HomeScreen(
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
+            // 커스텀 상단바
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (region.isNotBlank()) region else "지역 정보 없음",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = onNavigateToSearch) {
+                    Icon(Icons.Default.Search, contentDescription = "검색", modifier = Modifier.size(28.dp))
+                }
+            }
+
+            // 관심사 태그
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (interests.isNotEmpty()) {
-                    interests.forEach { interest ->
-                        InterestTag(
-                            name = interest.interestName,
-                            isSelected = selectedInterest == interest.interestName,
-                            onClick = {
-                                viewModel.onInterestClick(if (selectedInterest == interest.interestName) null else interest.interestName)
-                            }
-                        )
-                    }
-                } else if (!isLoadingInitial) {
-                    Text("관심사 로딩 중이거나 없음...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                InterestTag(
+                    name = "전체",
+                    isSelected = selectedInterest == null,
+                    onClick = { viewModel.onInterestClick(null) }
+                )
+                interests.forEach { interest ->
+                    InterestTag(
+                        name = interest.interestName,
+                        isSelected = selectedInterest == interest.interestName,
+                        onClick = { viewModel.onInterestClick(interest.interestName) }
+                    )
                 }
             }
+
             Spacer(modifier = Modifier.height(8.dp))
 
+            // 그룹 목록
             if (isLoadingInitial) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else if (groupList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("표시할 스터디 그룹이 없습니다.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    Text("표시할 스터디 그룹이 없습니다.", style = MaterialTheme.typography.bodyLarge)
                 }
             } else {
                 LazyColumn(
@@ -135,15 +132,12 @@ fun HomeScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(groupList) { group ->
-                        GroupCard(
+                    items(groupList, key = { it.groupId }) { group ->
+                        HomeGroupCard(
                             group = group,
-                            onClick = {
-                                onGroupClick(group)
-                            }
+                            onClick = { onGroupClick(group) }
                         )
                     }
-
                     if (isLoadingNextPage) {
                         item {
                             Row(

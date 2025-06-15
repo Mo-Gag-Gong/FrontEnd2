@@ -33,6 +33,10 @@ import kr.ac.uc.test_2025_05_19_k.util.RefreshEvent
 import kr.ac.uc.test_2025_05_19_k.util.getCityNameFromLocation
 import kr.ac.uc.test_2025_05_19_k.util.getCurrentLocation
 import javax.inject.Inject
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Divider
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -136,7 +140,10 @@ fun MainScreen(navController: androidx.navigation.NavHostController, startDestin
     androidx.compose.material3.Scaffold(
         bottomBar = {
             if (shouldShowBottomBar) {
-                BottomNavigationBar(navController = navController)
+                Column {
+                    Divider(thickness = 1.dp, color = Color.Black.copy(alpha = 0.5f))
+                    BottomNavigationBar(navController = navController)
+                }
             }
         }
     ) { innerPadding ->
