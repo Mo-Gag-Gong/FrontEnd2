@@ -1,47 +1,83 @@
 package kr.ac.uc.test_2025_05_19_k.util
 
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
+import android.util.Log
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Locale
 
-// String을 Date 객체로 변환하는 확장 함수
-fun String.toDate(): Date? {
-    // ▼▼▼ [수정] 날짜 포맷을 서버 데이터 형식과 일치시킵니다. ▼▼▼
-    // "T"는 문자 리터럴이므로 작은따옴표로 감싸고, 소수점 이하 초는 SSS로 표현합니다.
-    val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.KOREA)
+/**
+ * "yyyy-MM-dd" 형식의 문자열을 LocalDate 객체로 변환합니다.
+ */
+fun toDate(dateString: String?): LocalDate? {
+    if (dateString.isNullOrEmpty()) {
+        return null
+    }
     return try {
-        format.parse(this)
+        LocalDate.parse(dateString, DateTimeFormatter.ISO_LOCAL_DATE)
     } catch (e: Exception) {
-        // 만약 소수점 이하가 없는 형식도 대비하려면 여기서 한 번 더 다른 포맷으로 파싱할 수 있습니다.
-        try {
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.KOREA).parse(this)
-        } catch (e2: Exception) {
-            null
-        }
+        null
     }
 }
 
-fun isSameDay(dateString1: String?, dateString2: String?): Boolean {
-    if (dateString1 == null || dateString2 == null) return false
-    val cal1 = Calendar.getInstance().apply { time = dateString1.toDate() ?: return false }
-    val cal2 = Calendar.getInstance().apply { time = dateString2.toDate() ?: return false }
-    return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
-            cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+/**
+ * 서버에서 받은 UTC 기반 시간 문자열을 시스템 기본 시간대(KST)의 ZonedDateTime 객체로 변환합니다.
+ */
+private fun convertToSystemDefaultZonedDateTime(dateTimeString: String?): ZonedDateTime? {
+    if (dateTimeString.isNullOrBlank()) return null
+
+    // 1. 첫 번째 시도: 표준 UTC 형식 (e.g., "2023-10-27T10:15:30.123Z")
+    try {
+        val instant = Instant.parse(dateTimeString)
+        return instant.atZone(ZoneId.systemDefault())
+    } catch (e: Exception) {
+        // 파싱 실패 시 다음 형식으로 넘어갑니다.
+    }
+
+    // 2. 두 번째 시도: 시간대 정보가 없는 형식 (e.g., "2023-10-27T10:15:30")
+    // 이 문자열을 UTC 시간으로 간주하고 시스템 기본 시간대(KST)로 변환합니다.
+    try {
+        val localDateTime = LocalDateTime.parse(dateTimeString)
+        return localDateTime.atZone(ZoneId.of("UTC"))
+            .withZoneSameInstant(ZoneId.systemDefault())
+    } catch (e: Exception) {
+        // 최종 실패
+        Log.w("DateUtils", "Failed to parse date-time string with multiple formats: $dateTimeString")
+        return null
+    }
 }
 
-// "2024년 7월 23일 수요일" 형식으로 변환하는 함수
-fun formatSeparatorDate(dateString: String?): String {
-    if (dateString == null) return ""
-    val date = dateString.toDate() ?: return ""
-    val format = SimpleDateFormat("yyyy년 MM월 dd일 EEEE", Locale.KOREA)
-    return format.format(date)
+/**
+ * 두 UTC 시간 문자열이 같은 날짜인지 비교합니다.
+ */
+fun isSameDay(dateTimeString1: String?, dateTimeString2: String?): Boolean {
+    val zonedDateTime1 = convertToSystemDefaultZonedDateTime(dateTimeString1)
+    val zonedDateTime2 = convertToSystemDefaultZonedDateTime(dateTimeString2)
+
+    if (zonedDateTime1 == null || zonedDateTime2 == null) return false
+
+    return zonedDateTime1.toLocalDate().isEqual(zonedDateTime2.toLocalDate())
 }
 
-// "오후 2:30" 형식으로 변환하는 함수
-fun formatMessageTime(dateString: String?): String {
-    if (dateString == null) return ""
-    val date = dateString.toDate() ?: return ""
-    val format = SimpleDateFormat("a hh:mm", Locale.KOREA)
-    return format.format(date)
+/**
+ * 날짜 구분선을 "2025년 6월 15일 일요일" 형식으로 포맷합니다.
+ */
+fun formatSeparatorDate(dateTimeString: String?): String {
+    val zonedDateTime = convertToSystemDefaultZonedDateTime(dateTimeString)
+    return zonedDateTime?.let {
+        val dayOfWeek = it.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)
+        "${it.year}년 ${it.monthValue}월 ${it.dayOfMonth}일 $dayOfWeek"
+    } ?: "알 수 없는 날짜"
+}
+
+/**
+ * 메시지 시간을 "오후 9:39" 형식으로 포맷합니다.
+ */
+fun formatMessageTime(dateTimeString: String?): String {
+    val zonedDateTime = convertToSystemDefaultZonedDateTime(dateTimeString)
+    return zonedDateTime?.format(DateTimeFormatter.ofPattern("a h:mm", Locale.KOREAN)) ?: ""
 }

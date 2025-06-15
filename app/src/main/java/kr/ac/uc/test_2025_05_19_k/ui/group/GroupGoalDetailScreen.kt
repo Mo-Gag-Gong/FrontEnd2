@@ -17,9 +17,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kr.ac.uc.test_2025_05_19_k.model.GoalDetailDto
-import kr.ac.uc.test_2025_05_19_k.util.toDate
 import kr.ac.uc.test_2025_05_19_k.viewmodel.GroupGoalDetailViewModel
 import java.util.*
+// ▼▼▼ [추가] 필요한 임포트 ▼▼▼
+import kr.ac.uc.test_2025_05_19_k.util.toDate
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +33,6 @@ fun GroupGoalDetailScreen(
 ) {
     val goalDetail by viewModel.goalDetail.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    // ▼▼▼ [추가] 그룹장 여부 상태를 가져옵니다. ▼▼▼
     val isCurrentUserAdmin by viewModel.isCurrentUserAdmin.collectAsState()
 
     val shouldRefreshState = navController.currentBackStackEntry
@@ -58,9 +59,11 @@ fun GroupGoalDetailScreen(
                     }
                 },
                 actions = {
-                    // ▼▼▼ [수정] 그룹장일 경우에만 수정/삭제 버튼이 보이도록 합니다. ▼▼▼
                     if (isCurrentUserAdmin) {
-                        val isCompleted = goalDetail?.endDate?.toDate()?.before(Date()) ?: false
+                        // ▼▼▼ [수정] java.time.LocalDate를 사용하여 목표 완료 여부 확인 ▼▼▼
+                        val endDate = goalDetail?.endDate?.let { toDate(it) }
+                        val isCompleted = endDate?.isBefore(LocalDate.now()) ?: false
+
                         TextButton(
                             onClick = {
                                 navController.navigate("goal_edit/$groupId/$goalId")
@@ -107,10 +110,9 @@ fun GroupGoalDetailScreen(
                             Divider(modifier = Modifier.padding(vertical = 16.dp))
                         }
                         items(items = goal.details, key = { it.detailId ?: UUID.randomUUID().toString() }) { detail ->
-                            // ▼▼▼ [수정] GoalDetailItem에 isEnabled 속성 전달 ▼▼▼
                             GoalDetailItem(
                                 detail = detail,
-                                isEnabled = isCurrentUserAdmin, // 그룹장일 때만 활성화
+                                isEnabled = isCurrentUserAdmin,
                                 onCheckChange = { viewModel.toggleDetailCompletion(detail.detailId) }
                             )
                         }
@@ -124,7 +126,7 @@ fun GroupGoalDetailScreen(
 @Composable
 fun GoalDetailItem(
     detail: GoalDetailDto,
-    isEnabled: Boolean, // isEnabled 파라미터 추가
+    isEnabled: Boolean,
     onCheckChange: (Boolean) -> Unit
 ) {
     Row(
@@ -134,7 +136,7 @@ fun GoalDetailItem(
         Checkbox(
             checked = detail.isCompleted,
             onCheckedChange = onCheckChange,
-            enabled = isEnabled // 체크박스 활성화/비활성화 상태 설정
+            enabled = isEnabled
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(text = detail.description ?: "", style = MaterialTheme.typography.bodyLarge)

@@ -15,6 +15,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kr.ac.uc.test_2025_05_19_k.util.toDate
+import java.time.LocalDate
 
 
 @Composable
@@ -23,14 +24,14 @@ fun GoalItem(
     onClick: () -> Unit
 ) {
     // ▼▼▼ [추가] 날짜를 비교하여 동적으로 상태 결정 ▼▼▼
-    val today = Date()
-    val startDate = goal.startDate?.toDate()
-    val endDate = goal.endDate?.toDate()
+    val today = LocalDate.now()
+    val startDate = toDate(goal.startDate)
+    val endDate = toDate(goal.endDate)
 
     val status = when {
         startDate == null || endDate == null -> "날짜오류"
-        today.before(startDate) -> "시작 전"
-        today.after(endDate) -> "완료"
+        today.isBefore(startDate) -> "시작 전"
+        today.isAfter(endDate) -> "완료"
         else -> "진행중"
     }
 
@@ -53,7 +54,6 @@ fun GoalItem(
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray
                 )
-                // ▼▼▼ [수정] 서버 status 대신 위에서 계산한 status 전달 ▼▼▼
                 GoalStatusChip(status = status)
             }
         }

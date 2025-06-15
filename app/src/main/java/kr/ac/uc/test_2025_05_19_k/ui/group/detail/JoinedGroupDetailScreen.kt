@@ -60,6 +60,7 @@ import kr.ac.uc.test_2025_05_19_k.viewmodel.JoinedGroupDetailViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.LinearProgressIndicator
 import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
+import kr.ac.uc.test_2025_05_19_k.ui.group.ChatTabScreen
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -149,7 +150,7 @@ fun JoinedGroupDetailScreen(
                         goals = goals,
                         groupId = viewModel.groupId
                     )
-                    3 -> PlaceholderContent(text = "채팅 기능은 준비 중입니다.")
+                    3 -> ChatTabScreen(navController = navController, groupId = viewModel.groupId)
                     4 -> PlaceholderContent(text = "모임 기능은 준비 중입니다.")
                 }
             }

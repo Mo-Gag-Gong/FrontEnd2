@@ -2,7 +2,6 @@ package kr.ac.uc.test_2025_05_19_k.ui.group
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -17,31 +16,33 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.model.GroupChatDto
 import kr.ac.uc.test_2025_05_19_k.util.formatMessageTime
 import kr.ac.uc.test_2025_05_19_k.util.formatSeparatorDate
 import kr.ac.uc.test_2025_05_19_k.util.isSameDay
-import kr.ac.uc.test_2025_05_19_k.viewmodel.GroupAdminDetailViewModel
+import kr.ac.uc.test_2025_05_19_k.viewmodel.ChatViewModel
 
 @Composable
-fun ChatTabScreen(viewModel: GroupAdminDetailViewModel) {
-    val messages by viewModel.chatMessages.collectAsState()
-    val inputText by viewModel.chatInputText.collectAsState()
-    val myUserId = viewModel.myUserId
+fun ChatTabScreen(
+    navController: NavController,
+    groupId: Long,
+    viewModel: ChatViewModel = hiltViewModel()
+) {
+    val messages by viewModel.messages.collectAsState()
+    val inputText by viewModel.inputText.collectAsState()
+    val myUserId by remember { mutableStateOf(viewModel.myUserId) }
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        viewModel.fetchInitialChats()
-    }
-
     LaunchedEffect(messages) {
         if (messages.isNotEmpty()) {
             coroutineScope.launch {
-                listState.animateScrollToItem(messages.lastIndex)
+                listState.animateScrollToItem(messages.size - 1)
             }
         }
     }
@@ -52,7 +53,7 @@ fun ChatTabScreen(viewModel: GroupAdminDetailViewModel) {
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
         ) {
-            itemsIndexed(items = messages, key = { _, item -> item.chatId ?: "" }) { index, message ->
+            itemsIndexed(items = messages, key = { _, item -> item.chatId ?: item.hashCode() }) { index, message ->
                 val prevMessage = messages.getOrNull(index - 1)
                 val showDateSeparator = !isSameDay(prevMessage?.sentAt, message.sentAt)
 
@@ -61,12 +62,13 @@ fun ChatTabScreen(viewModel: GroupAdminDetailViewModel) {
                 }
 
                 ChatItem(message = message, isMyMessage = message.senderId == myUserId)
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
 
         ChatInputBar(
             value = inputText,
-            onValueChange = viewModel::onChatInputChanged,
+            onValueChange = viewModel::onInputTextChanged,
             onSendClick = viewModel::sendChatMessage
         )
     }
@@ -77,7 +79,9 @@ fun ChatItem(message: GroupChatDto, isMyMessage: Boolean) {
     val horizontalArrangement = if (isMyMessage) Arrangement.End else Arrangement.Start
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         horizontalArrangement = horizontalArrangement,
         verticalAlignment = Alignment.Bottom
     ) {
@@ -114,7 +118,8 @@ fun ChatItem(message: GroupChatDto, isMyMessage: Boolean) {
                 ) {
                     Text(
                         text = message.message ?: "",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
@@ -135,29 +140,27 @@ private fun TimeText(timeString: String?) {
     )
 }
 
-// ▼▼▼ [추가] 날짜 구분선을 표시하는 Composable ▼▼▼
 @Composable
 private fun DateSeparator(dateString: String?) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = Color.Gray.copy(alpha = 0.5f)
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
         ) {
             Text(
                 text = formatSeparatorDate(dateString),
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondary,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
     }
 }
-
 
 @Composable
 fun ChatInputBar(value: String, onValueChange: (String) -> Unit, onSendClick: () -> Unit) {
@@ -172,14 +175,22 @@ fun ChatInputBar(value: String, onValueChange: (String) -> Unit, onSendClick: ()
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("메시지...") }
+                placeholder = { Text("메시지...") },
+                shape = RoundedCornerShape(24.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(
                 onClick = onSendClick,
-                enabled = value.isNotBlank()
+                enabled = value.isNotBlank(),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = if (value.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                )
             ) {
-                Icon(Icons.Default.Send, contentDescription = "Send Message")
+                Icon(
+                    Icons.Default.Send,
+                    contentDescription = "Send Message",
+                    tint = if (value.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

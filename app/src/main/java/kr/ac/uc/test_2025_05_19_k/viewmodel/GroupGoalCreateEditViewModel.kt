@@ -12,10 +12,8 @@ import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupGoalCreateRequest
 import kr.ac.uc.test_2025_05_19_k.repository.GroupRepository
 import javax.inject.Inject
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
+// ▼▼▼ [수정] java.time API를 사용하고 불필요한 임포트 제거 ▼▼▼
+import java.time.LocalDate
 import kr.ac.uc.test_2025_05_19_k.util.toDate
 
 data class GoalFormState(
@@ -27,7 +25,7 @@ data class GoalFormState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val showEndDateWarning: Boolean = false,
-    val isFormValid: Boolean = false // ▼▼▼ [추가] 폼 유효성 상태 변수
+    val isFormValid: Boolean = false
 )
 
 @HiltViewModel
@@ -48,16 +46,11 @@ class GroupGoalCreateEditViewModel @Inject constructor(
         }
     }
 
+    // ▼▼▼ [수정] onEndDateChange 함수를 LocalDate 기준으로 변경 ▼▼▼
     fun onEndDateChange(date: String) {
-        val today = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-
-        val selectedEndDate = date.toDate()
-        val shouldShowWarning = selectedEndDate != null && selectedEndDate.before(today)
+        val today = LocalDate.now()
+        val selectedEndDate = toDate(date)
+        val shouldShowWarning = selectedEndDate != null && selectedEndDate.isBefore(today)
 
         _uiState.update {
             val newState = it.copy(endDate = date, showEndDateWarning = shouldShowWarning)
@@ -84,7 +77,6 @@ class GroupGoalCreateEditViewModel @Inject constructor(
                         details = goal.details.map { detail -> detail.description ?: "" },
                         isLoading = false
                     )
-                    // ▼▼▼ [추가] 로드된 데이터로 유효성 검사 ▼▼▼
                     loadedState.copy(isFormValid = validateForm(loadedState))
                 }
             } catch (e: Exception) {
@@ -99,12 +91,14 @@ class GroupGoalCreateEditViewModel @Inject constructor(
             newState.copy(isFormValid = validateForm(newState))
         }
     }
+
     fun onStartDateChange(date: String) {
         _uiState.update {
             val newState = it.copy(startDate = date)
             newState.copy(isFormValid = validateForm(newState))
         }
     }
+
     fun onDetailChange(index: Int, text: String) {
         val newDetails = _uiState.value.details.toMutableList()
         newDetails[index] = text
@@ -112,36 +106,28 @@ class GroupGoalCreateEditViewModel @Inject constructor(
     }
 
     fun addDetailField() {
-        val newDetails = _uiState.value.details + "" // 비어있는 세부 목표 필드 추가
+        val newDetails = _uiState.value.details + ""
         _uiState.update { it.copy(details = newDetails) }
     }
 
     fun removeDetailField(index: Int) {
-        if (_uiState.value.details.size > 1) { // 최소 1개는 유지
+        if (_uiState.value.details.size > 1) {
             val newDetails = _uiState.value.details.toMutableList()
             newDetails.removeAt(index)
             _uiState.update { it.copy(details = newDetails) }
         }
     }
 
+    // ▼▼▼ [수정] saveGoal 함수의 날짜 유효성 검사 로직 변경 ▼▼▼
     fun saveGoal(onSuccess: () -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val currentState = _uiState.value
 
-            // ▼▼▼ [추가] 날짜 유효성 검사 로직 ▼▼▼
-            val today = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.time
+            val today = LocalDate.now()
+            val endDate = toDate(currentState.endDate)
 
-            val endDate = try {
-                SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(currentState.endDate)
-            } catch (e: Exception) { null }
-
-            if (endDate != null && endDate.before(today)) {
+            if (endDate != null && endDate.isBefore(today)) {
                 _uiState.update { it.copy(isLoading = false, error = "종료 날짜는 현재 날짜보다 이전일 수 없습니다.") }
                 return@launch
             }
@@ -151,7 +137,7 @@ class GroupGoalCreateEditViewModel @Inject constructor(
                 pointValue = 0,
                 startDate = currentState.startDate,
                 endDate = currentState.endDate,
-                details = currentState.details.filter { it.isNotBlank() } // 비어있는 내용은 제외
+                details = currentState.details.filter { it.isNotBlank() }
             )
 
             try {
@@ -168,10 +154,3 @@ class GroupGoalCreateEditViewModel @Inject constructor(
         }
     }
 }
-
-
-data class GroupGoalCreateEditUiState(
-    // ... 기존 변수들
-    val error: String? = null,
-    val showEndDateWarning: Boolean = false // ▼▼▼ [추가] 종료 날짜 경고 표시 여부
-)
