@@ -15,5 +15,6 @@ data class StudyGroup( // 또는 StudyGroupDto
     val requirements: String, // 추가
     val isActive: Boolean, // 추가
     val createdAt: String, // 추가 (날짜시간 타입은 String 또는 적절한 DateTime 타입으로)
-    val updatedAt: String // 추가
+    val updatedAt: String, // 추가
+    val isMember: Boolean
 )

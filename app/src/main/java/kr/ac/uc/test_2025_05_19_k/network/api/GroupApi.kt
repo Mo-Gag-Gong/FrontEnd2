@@ -1,4 +1,4 @@
-// mo-gag-gong/frontend/frontend-dev-hj/app/src/main/java/kr/ac/uc/test_2025_05_19_k/network/api/GroupApi.kt
+// mo-gag-gong/frontend2/FrontEnd2-34c64adbf8218e74ead67775384f12f5a0320126/app/src/main/java/kr/ac/uc/test_2025_05_19_k/network/api/GroupApi.kt
 package kr.ac.uc.test_2025_05_19_k.network.api
 
 import kr.ac.uc.test_2025_05_19_k.model.GroupChatDto
@@ -147,4 +147,7 @@ interface GroupApi {
         @Path("groupId") groupId: Long,
         @Body request: GroupChatCreateRequest
     ): Response<GroupChatDto>
+
+    @POST("/api/groups/{groupId}/leave")
+    suspend fun leaveGroup(@Path("groupId") groupId: Long): Response<Void>
 }

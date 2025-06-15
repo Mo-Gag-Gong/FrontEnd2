@@ -1,4 +1,4 @@
-// app/src/main/java/kr/ac/uc/test_2025_05_19_k/ui/group/detail/GroupDetailScreen.kt
+// app/src/main/java/kr/ac/uc/test_2025_05_19_k/ui/group/detail/GroupApplyScreen.kt
 package kr.ac.uc.test_2025_05_19_k.ui.group.detail
 
 import android.widget.Toast
@@ -20,7 +20,7 @@ import kr.ac.uc.test_2025_05_19_k.viewmodel.GroupDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GroupDetailScreen(
+fun GroupApplyScreen(
     navController: NavController,
     groupId: Long,
     viewModel: GroupDetailViewModel = hiltViewModel()

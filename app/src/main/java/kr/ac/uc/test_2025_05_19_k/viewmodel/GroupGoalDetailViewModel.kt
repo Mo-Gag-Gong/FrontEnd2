@@ -37,6 +37,7 @@ class GroupGoalDetailViewModel @Inject constructor(
     private val _isLoadingGoals = MutableStateFlow(false)
     val isLoadingGoals: StateFlow<Boolean> = _isLoadingGoals.asStateFlow()
 
+    val isAdmin: Boolean = savedStateHandle.get<Boolean>("isAdmin") ?: true
 
     init {
         loadGoalDetails()

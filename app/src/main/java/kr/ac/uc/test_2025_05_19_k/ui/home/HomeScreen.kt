@@ -1,100 +1,108 @@
-// mo-gag-gong/frontend/frontend-dev-hj/app/src/main/java/kr/ac/uc/test_2025_05_19_k/ui/home/HomeScreen.kt
 package kr.ac.uc.test_2025_05_19_k.ui.home
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import android.util.Log
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import kr.ac.uc.test_2025_05_19_k.model.StudyGroup
 import kr.ac.uc.test_2025_05_19_k.ui.common.GroupCard
 import kr.ac.uc.test_2025_05_19_k.ui.common.InterestTag
 import kr.ac.uc.test_2025_05_19_k.viewmodel.HomeViewModel
 
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
-import android.util.Log
-import androidx.compose.foundation.lazy.LazyColumn // LazyColumn 임포트
-import androidx.compose.foundation.lazy.items // items 임포트
-import androidx.compose.foundation.lazy.rememberLazyListState // rememberLazyListState 임포트
-import androidx.compose.material.icons.filled.Search
-import androidx.navigation.NavController
-import androidx.compose.ui.Alignment
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = hiltViewModel(),
     navController: NavController,
-    onGroupClick: (Long) -> Unit,
+    viewModel: HomeViewModel = hiltViewModel(),
+    onGroupClick: (StudyGroup) -> Unit,
     onCreateGroupClick: () -> Unit,
-    onNavigateToSearch: () -> Unit
+    onNavigateToSearch: () -> Unit,
 ) {
     val region by viewModel.region.collectAsState()
     val interests by viewModel.interests.collectAsState()
     val selectedInterest by viewModel.selectedInterest.collectAsState()
     val groupList by viewModel.groupList.collectAsState()
-
-    // --- 페이지네이션 관련 상태 ---
     val isLoadingInitial by viewModel.isLoadingInitial.collectAsState()
     val isLoadingNextPage by viewModel.isLoadingNextPage.collectAsState()
     val isLastPage by viewModel.isLastPage.collectAsState()
     val lazyListState = rememberLazyListState()
 
-    // 스크롤 리스너: 리스트의 끝에 도달하면 다음 페이지 로드
     LaunchedEffect(lazyListState, isLoadingNextPage, isLastPage, groupList) {
         snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
             .collect { lastVisibleItemIndex ->
                 val totalItemsCount = lazyListState.layoutInfo.totalItemsCount
-                // groupList가 비어있지 않고, 마지막에서 1~2개 아이템이 보일 때 미리 로드, 로딩 중이 아니고, 마지막 페이지가 아닐 때
                 if (groupList.isNotEmpty() && lastVisibleItemIndex != null &&
-                    lastVisibleItemIndex >= totalItemsCount - 3 && // 마지막에서 3번째 아이템 보이면 미리 로드
+                    lastVisibleItemIndex >= totalItemsCount - 3 &&
                     !isLoadingInitial && !isLoadingNextPage && !isLastPage
                 ) {
-                    Log.d("HomeScreen", "스크롤 끝 감지, 다음 페이지 로드 요청. LastVisible: $lastVisibleItemIndex, TotalItems: $totalItemsCount")
+                    Log.d("HomeScreen", "스크롤 끝 감지, 다음 페이지 로드 요청.")
                     viewModel.loadNextGroupPage()
                 }
             }
     }
-    // ViewModel 초기화는 ViewModel의 init 블록에서 처리되므로 별도 호출 불필요
-    // LaunchedEffect(Unit) {
-    //     viewModel.initUser() -> ViewModel의 init에서 호출
-    // }
 
     Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onCreateGroupClick() },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "그룹 생성")
-            }
-        },
         topBar = {
             TopAppBar(
-                title = { Text(text = if (region.isNotBlank()) "${region} 지역 스터디 추천" else "스터디 추천") },
+                title = { Text(text = if (region.isNotBlank()) "$region 지역 스터디 추천" else "스터디 추천") },
                 actions = {
                     IconButton(onClick = onNavigateToSearch) {
                         Icon(Icons.Default.Search, contentDescription = "검색")
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onCreateGroupClick, containerColor = MaterialTheme.colorScheme.primary) {
+                Icon(Icons.Default.Add, contentDescription = "그룹 생성")
+            }
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 0.dp)
                 .fillMaxSize()
         ) {
-            Spacer(modifier = Modifier.height(12.dp))
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (interests.isNotEmpty()) {
                     interests.forEach { interest ->
@@ -106,12 +114,11 @@ fun HomeScreen(
                             }
                         )
                     }
-                } else if (!isLoadingInitial) { // 로딩 중이 아닐 때만 "관심사 없음" 표시
+                } else if (!isLoadingInitial) {
                     Text("관심사 로딩 중이거나 없음...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (isLoadingInitial) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -125,14 +132,18 @@ fun HomeScreen(
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp) // 카드 간 간격
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(items = groupList, key = { group -> group.groupId }) { group ->
-                        GroupCard(group = group) {
-                            onGroupClick(group.groupId)
-                        }
+                    items(groupList) { group ->
+                        GroupCard(
+                            group = group,
+                            onClick = {
+                                onGroupClick(group)
+                            }
+                        )
                     }
-                    // 다음 페이지 로딩 인디케이터
+
                     if (isLoadingNextPage) {
                         item {
                             Row(

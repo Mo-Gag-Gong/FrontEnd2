@@ -13,7 +13,6 @@ import kotlinx.coroutines.delay
 import kr.ac.uc.test_2025_05_19_k.ui.*
 import kr.ac.uc.test_2025_05_19_k.ui.gps.RegionSettingScreen
 import kr.ac.uc.test_2025_05_19_k.ui.group.create.GroupCreateScreen
-import kr.ac.uc.test_2025_05_19_k.ui.group.detail.GroupDetailScreen
 import kr.ac.uc.test_2025_05_19_k.ui.home.HomeScreen
 import kr.ac.uc.test_2025_05_19_k.ui.profile.SignInProfileSettingScreen
 import kr.ac.uc.test_2025_05_19_k.ui.gps.SignInGPSSettingScreen
@@ -38,9 +37,11 @@ import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalDetailScreen
 import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalListScreen
 import kr.ac.uc.test_2025_05_19_k.ui.group.GroupMemberDetailScreen
 import kr.ac.uc.test_2025_05_19_k.ui.group.GroupMemberManageScreen
+import kr.ac.uc.test_2025_05_19_k.ui.group.detail.JoinedGroupDetailScreen
 import kr.ac.uc.test_2025_05_19_k.viewmodel.InterestSelectViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.OnboardingViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.ProfileInputViewModel
+import kr.ac.uc.test_2025_05_19_k.ui.group.detail.GroupApplyScreen
 
 @Composable
 fun LogCurrentScreen(navController: NavController) {
@@ -183,8 +184,15 @@ fun AppNavGraph(
         composable(BottomNavItem.Home.route) {
             HomeScreen(
                 navController = navController,
-                onGroupClick = { groupId ->
-                    navController.navigate("group_detail/$groupId")
+                // [수정] group 객체를 받아 isMember 값에 따라 분기 처리
+                onGroupClick = { group ->
+                    if (group.isMember) {
+                        // 이미 가입한 그룹 -> 참여자용 상세 탭 화면으로 이동
+                        navController.navigate("group_detail/${group.groupId}")
+                    } else {
+                        // 가입하지 않은 그룹 -> 가입 신청 화면으로 이동
+                        navController.navigate("group_apply/${group.groupId}")
+                    }
                 },
                 onCreateGroupClick = {
                     navController.navigate("group_create")
@@ -194,30 +202,33 @@ fun AppNavGraph(
                 }
             )
         }
-        composable(BottomNavItem.Schedule.route) {
-            ScheduleScreen(navController = navController)
-        }
-        composable(BottomNavItem.GroupManagement.route) {
-            GroupManagementScreen(navController = navController)
-        }
-        composable(BottomNavItem.MyProfile.route) {
-            MyProfileScreen(navController = navController)
-        }
+        composable(BottomNavItem.Schedule.route) { ScheduleScreen(navController = navController) }
+        composable(BottomNavItem.GroupManagement.route) { GroupManagementScreen(navController = navController) }
+        composable(BottomNavItem.MyProfile.route) { MyProfileScreen(navController = navController) }
+
 
         // --- 그룹 상세/생성/관리 등 추가 화면 ---
         composable(
-            route = "group_detail/{groupId}",
+            route = "group_apply/{groupId}",
             arguments = listOf(navArgument("groupId") { type = NavType.LongType })
         ) { backStackEntry ->
-            val groupIdArg = backStackEntry.arguments?.getLong("groupId") ?: -1L
-            if (groupIdArg != -1L) {
-                GroupDetailScreen(
+            val groupId = backStackEntry.arguments?.getLong("groupId")
+            if (groupId != null) {
+                // 이전에 GroupDetailScreen 이었던 가입 신청용 화면을 호출합니다.
+                // 파일명을 GroupApplyScreen으로 바꾸시는 것을 권장합니다.
+                GroupApplyScreen(
                     navController = navController,
-                    groupId = groupIdArg
+                    groupId = groupId
                 )
             } else {
                 Text("오류: 유효하지 않은 그룹 ID입니다.")
             }
+        }
+        composable(
+            route = "group_detail/{groupId}",
+            arguments = listOf(navArgument("groupId") { type = NavType.LongType })
+        ) {
+            JoinedGroupDetailScreen(navController = navController)
         }
         composable("group_create") {
             GroupCreateScreen(navController = navController)
@@ -279,6 +290,8 @@ fun AppNavGraph(
             }
         }
 
+
+
         // --- 검색 화면 ---
         composable("search") {
             SearchScreen(
@@ -288,16 +301,13 @@ fun AppNavGraph(
                 }
             )
         }
-        composable(
-            "search_result/{query}",
-            arguments = listOf(navArgument("query") { type = NavType.StringType })
-        ) { backStackEntry ->
+        composable("search_result/{query}") { backStackEntry ->
             val query = backStackEntry.arguments?.getString("query") ?: ""
             SearchResultScreen(
                 navController = navController,
                 searchQuery = query,
                 onGroupClick = { groupId ->
-                    navController.navigate("group_detail/$groupId")
+                    navController.navigate("group_apply/$groupId")
                 }
             )
         }
@@ -332,16 +342,26 @@ fun AppNavGraph(
 
         // 그룹 목표 상세 화면
         composable(
-            route = "group_goal_detail/{groupId}/{goalId}",
+            route = "group_goal_detail/{groupId}/{goalId}?isAdmin={isAdmin}",
             arguments = listOf(
+                // [수정] NavType을 StringType으로 변경하여 ViewModel과 타입을 맞춥니다.
                 navArgument("groupId") { type = NavType.StringType },
-                navArgument("goalId") { type = NavType.StringType }
+                navArgument("goalId") { type = NavType.StringType },
+                navArgument("isAdmin") { type = NavType.BoolType; defaultValue = true }
             )
         ) { backStackEntry ->
+            // [수정] 인자를 String으로 추출하여 GroupGoalDetailScreen에 전달합니다.
             val groupId = backStackEntry.arguments?.getString("groupId")
             val goalId = backStackEntry.arguments?.getString("goalId")
+
             if (groupId != null && goalId != null) {
-                GroupGoalDetailScreen(navController = navController, groupId = groupId, goalId = goalId)
+                GroupGoalDetailScreen(
+                    navController = navController,
+                    groupId = groupId,
+                    goalId = goalId
+                )
+            } else {
+                Text("오류: 유효하지 않은 목표 정보입니다.")
             }
         }
 

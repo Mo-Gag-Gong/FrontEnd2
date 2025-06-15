@@ -29,6 +29,7 @@ class HomeViewModel @Inject constructor(
 ) : AndroidViewModel(application) {
 
     private val userPreference = UserPreference(application)
+    private val joinedGroupIds = MutableStateFlow<Set<Long>>(emptySet())
 
     private val _region = MutableStateFlow("")
     val region: StateFlow<String> = _region.asStateFlow()
@@ -64,6 +65,7 @@ class HomeViewModel @Inject constructor(
         initUser()
         loadRecentSearches()
         observeAppEvents()
+        fetchJoinedGroupIds()
     }
 
     fun initUser() {
@@ -91,6 +93,17 @@ class HomeViewModel @Inject constructor(
                         initUser()
                     }
                 }
+            }
+        }
+    }
+
+    private fun fetchJoinedGroupIds() {
+        viewModelScope.launch {
+            try {
+                val joinedGroups = groupRepository.getMyJoinedGroups()
+                joinedGroupIds.value = joinedGroups?.map { it.groupId }?.toSet() ?: emptySet()
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "가입한 그룹 목록 로드 실패", e)
             }
         }
     }
@@ -173,7 +186,7 @@ class HomeViewModel @Inject constructor(
 
     private fun fetchGroupPage(pageToLoad: Int) {
         val currentRegion = _region.value
-        val currentInterest = _selectedInterest.value // 현재 선택된 관심사
+        val currentInterest = _selectedInterest.value
 
         Log.d("HomeViewModel", "fetchGroupPage 시작 - Page: $pageToLoad, Region: $currentRegion, Interest: $currentInterest")
 
@@ -181,45 +194,58 @@ class HomeViewModel @Inject constructor(
             try {
                 val pageResultDto: PageStudyGroupDto = groupRepository.getGroups(
                     region = currentRegion,
-                    interest = currentInterest, // 서버에 관심사 필터 요청
+                    interest = currentInterest,
                     keyword = null,
                     page = pageToLoad,
                     size = pageSize
                 )
-                Log.d("HomeViewModel", "GetGroups API 결과 수신 (Page $pageToLoad): ${pageResultDto.content.size}개, TotalPages: ${pageResultDto.totalPages}, IsLast: ${pageResultDto.last}")
+                Log.d("HomeViewModel", "GetGroups API 결과 수신 (Page $pageToLoad): ${pageResultDto.content.size}개")
 
-                var processedContent = pageResultDto.content
-
-                // 1. 클라이언트 측 지역 필터링 (항상 수행)
-                val regionFilteredContent = processedContent.filter { it.locationName == currentRegion }
-                if (processedContent.size != regionFilteredContent.size) {
-                    Log.w("HomeViewModel", "클라이언트 지역 필터링 적용됨. 서버 반환 ${processedContent.size}개 -> 지역 필터 후 ${regionFilteredContent.size}개")
+                // [수정] 1. 서버에서 받은 StudyGroupDto를 -> isMember를 포함하는 StudyGroup 모델로 변환
+                val studyGroups = pageResultDto.content.map { dto ->
+                    StudyGroup(
+                        groupId = dto.groupId,
+                        creatorId = dto.creatorId,
+                        creatorName = dto.creatorName,
+                        title = dto.title,
+                        interestName = dto.interestName,
+                        description = dto.description,
+                        locationName = dto.locationName,
+                        startDate = dto.startDate,
+                        endDate = dto.endDate,
+                        maxMembers = dto.maxMembers,
+                        currentMembers = dto.currentMembers,
+                        requirements = dto.requirements,
+                        isActive = dto.isActive,
+                        createdAt = dto.createdAt,
+                        updatedAt = dto.updatedAt,
+                        isMember = joinedGroupIds.value.contains(dto.groupId) // 가입 여부 확인
+                    )
                 }
-                processedContent = regionFilteredContent
 
-                // 2. 클라이언트 측 관심사 필터링 (currentInterest가 null이 아닐 경우에만 수행)
+                // [수정] 2. 변환된 studyGroupsWithMembership 리스트를 가지고 기존 필터링 로직 수행
+                var processedContent = studyGroups
+
+                // 클라이언트 측 지역 필터링
+                processedContent = processedContent.filter { it.locationName == currentRegion }
                 if (currentInterest != null) {
-                    val interestFilteredContent = processedContent.filter { it.interestName == currentInterest }
-                    if (processedContent.size != interestFilteredContent.size) {
-                        Log.w("HomeViewModel", "클라이언트 관심사 필터링 적용됨. 이전 ${processedContent.size}개 -> 관심사(${currentInterest}) 필터 후 ${interestFilteredContent.size}개")
-                    }
-                    processedContent = interestFilteredContent
+                    processedContent = processedContent.filter { it.interestName == currentInterest }
                 }
 
+                // [수정] 3. 최종적으로 처리된 목록을 _groupList에 업데이트
                 if (pageToLoad == 0) {
                     _groupList.value = processedContent
                 } else {
                     _groupList.value = _groupList.value + processedContent
                 }
-                _isLastPage.value = pageResultDto.last
-                _currentPage.value = pageResultDto.number
 
-                Log.d("HomeViewModel", "그룹 목록 업데이트 후 (Page ${pageResultDto.number}): 총 ${_groupList.value.size}개, IsLastPage: ${_isLastPage.value}. 최종 데이터: ${_groupList.value.map { it.title + " (" + it.interestName + ")" }}") // 데이터 확인용 로그 추가
+                _isLastPage.value = pageResultDto.last
+                _currentPage.value = pageToLoad // [개선] API 응답의 number 대신 요청한 페이지 번호로 설정
+
+                Log.d("HomeViewModel", "그룹 목록 업데이트 후: 총 ${_groupList.value.size}개")
 
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "그룹 페이지($pageToLoad) 로드 실패: ${e.message}", e)
-                if (pageToLoad == 0) _isLoadingInitial.value = false
-                _isLoadingNextPage.value = false
             } finally {
                 if (pageToLoad == 0) _isLoadingInitial.value = false
                 _isLoadingNextPage.value = false

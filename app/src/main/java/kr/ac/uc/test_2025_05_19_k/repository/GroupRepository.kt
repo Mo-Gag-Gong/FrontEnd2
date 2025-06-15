@@ -1,4 +1,4 @@
-// mo-gag-gong/frontend/frontend-dev-hj/app/src/main/java/kr/ac/uc/test_2025_05_19_k/repository/GroupRepository.kt
+// mo-gag-gong/frontend2/FrontEnd2-34c64adbf8218e74ead67775384f12f5a0320126/app/src/main/java/kr/ac/uc/test_2025_05_19_k/repository/GroupRepository.kt
 package kr.ac.uc.test_2025_05_19_k.repository
 
 import kr.ac.uc.test_2025_05_19_k.model.GroupChatDto
@@ -189,6 +189,13 @@ class GroupRepository @Inject constructor(
             return response.body()!!
         } else {
             throw Exception("Failed to send message")
+        }
+    }
+
+    suspend fun leaveGroup(groupId: Long) {
+        val response = groupApi.leaveGroup(groupId)
+        if (!response.isSuccessful) {
+            throw Exception("Failed to leave group: ${response.code()}")
         }
     }
 }
