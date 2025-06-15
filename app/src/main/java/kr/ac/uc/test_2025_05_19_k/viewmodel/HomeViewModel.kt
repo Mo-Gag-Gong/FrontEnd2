@@ -18,6 +18,7 @@ import kr.ac.uc.test_2025_05_19_k.repository.GroupRepository
 import kr.ac.uc.test_2025_05_19_k.repository.InterestRepository
 import kr.ac.uc.test_2025_05_19_k.util.AppEvents
 import kr.ac.uc.test_2025_05_19_k.util.RefreshEvent
+import retrofit2.HttpException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -28,6 +29,8 @@ class HomeViewModel @Inject constructor(
     private val appEvents: AppEvents
 ) : AndroidViewModel(application) {
 
+    enum class DialogState { HIDDEN, SUCCESS, PENDING }
+
     private val userPreference = UserPreference(application)
     private val joinedGroupIds = MutableStateFlow<Set<Long>>(emptySet())
 
@@ -37,14 +40,14 @@ class HomeViewModel @Inject constructor(
     private val _interests = MutableStateFlow<List<Interest>>(emptyList())
     val interests: StateFlow<List<Interest>> = _interests.asStateFlow()
 
+    private val _groupList = MutableStateFlow<List<StudyGroup>>(emptyList())
+    val groupList: StateFlow<List<StudyGroup>> = _groupList.asStateFlow()
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     private val _selectedInterest = MutableStateFlow<String?>(null)
     val selectedInterest: StateFlow<String?> = _selectedInterest.asStateFlow()
-
-    private val _groupList = MutableStateFlow<List<StudyGroup>>(emptyList())
-    val groupList: StateFlow<List<StudyGroup>> = _groupList.asStateFlow()
 
     private val _recentSearches = MutableStateFlow<List<String>>(emptyList())
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
@@ -59,6 +62,9 @@ class HomeViewModel @Inject constructor(
     private val _isLastPage = MutableStateFlow(false)
     val isLastPage: StateFlow<Boolean> = _isLastPage.asStateFlow()
 
+    private val _dialogState = MutableStateFlow(DialogState.HIDDEN)
+    val dialogState: StateFlow<DialogState> = _dialogState.asStateFlow()
+
     private val pageSize = 10
 
     init {
@@ -66,6 +72,10 @@ class HomeViewModel @Inject constructor(
         loadRecentSearches()
         observeAppEvents()
         fetchJoinedGroupIds()
+    }
+
+    fun dismissDialog() {
+        _dialogState.value = DialogState.HIDDEN
     }
 
     fun initUser() {
@@ -273,13 +283,23 @@ class HomeViewModel @Inject constructor(
         userPreference.clearRecentSearches()
         loadRecentSearches()
     }
+    
     suspend fun applyToGroup(groupId: Long) {
         try {
             groupRepository.applyToGroup(groupId)
+            // API 호출이 성공하면 (Exception이 발생하지 않으면) 성공 상태로 변경
+            _dialogState.value = DialogState.SUCCESS
         } catch (e: Exception) {
-            Log.e("HomeViewModel", "Failed to apply to group", e)
-            // 에러를 다시 던져서 UI단에서 처리할 수 있게 함
-            throw e
+            // HttpException이고 코드가 400이면, 이미 신청했거나 다른 문제 발생
+            if (e is HttpException && e.code() == 400) {
+                // 서버의 에러 메시지를 파싱하여 더 정확하게 분기할 수 있으나,
+                // 여기서는 400 에러를 '이미 신청/대기 중'으로 간주합니다.
+                _dialogState.value = DialogState.PENDING
+            } else {
+                // 그 외 네트워크 오류 등
+                Log.e("HomeViewModel", "Failed to apply to group", e)
+                throw e // UI단에서 추가 처리가 필요하면 에러를 다시 던짐
+            }
         }
     }
 }

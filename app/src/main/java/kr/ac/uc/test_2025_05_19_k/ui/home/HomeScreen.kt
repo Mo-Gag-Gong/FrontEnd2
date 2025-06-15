@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroup
+import kr.ac.uc.test_2025_05_19_k.ui.common.ApplicationStatusDialog
 import kr.ac.uc.test_2025_05_19_k.ui.common.HomeGroupCard
 import kr.ac.uc.test_2025_05_19_k.ui.common.InterestTag
 import kr.ac.uc.test_2025_05_19_k.ui.group.detail.GroupApplySheetContent
@@ -36,13 +37,18 @@ fun HomeScreen(
     val selectedInterest by viewModel.selectedInterest.collectAsState()
     val groupList by viewModel.groupList.collectAsState()
     val isLoadingInitial by viewModel.isLoadingInitial.collectAsState()
+    val dialogState by viewModel.dialogState.collectAsState()
 
     // ▼▼▼ [추가] BottomSheet 상태 관리를 위한 변수들 ▼▼▼
     val sheetState = rememberModalBottomSheetState()
     var selectedGroup by remember { mutableStateOf<StudyGroup?>(null) }
     val scope = rememberCoroutineScope()
 
-    // ▼▼▼ [추가] 선택된 그룹이 있을 때만 BottomSheet를 띄웁니다 ▼▼▼
+    ApplicationStatusDialog(
+        dialogState = dialogState,
+        onDismiss = { viewModel.dismissDialog() }
+    )
+
     if (selectedGroup != null) {
         ModalBottomSheet(
             onDismissRequest = { selectedGroup = null },
@@ -52,11 +58,12 @@ fun HomeScreen(
             GroupApplySheetContent(
                 group = selectedGroup!!,
                 onApply = {
-                    // TODO: 가입 신청 로직 연결 (ViewModel에 함수 추가 필요)
-                    scope.launch { sheetState.hide() }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            selectedGroup = null
-                        }
+                    // ▼▼▼ [수정] ViewModel의 applyToGroup 호출 ▼▼▼
+                    scope.launch {
+                        sheetState.hide()
+                        // ViewModel의 함수를 호출하고, UI에서는 성공/실패를 직접 처리하지 않음
+                        viewModel.applyToGroup(selectedGroup!!.groupId)
+                        selectedGroup = null
                     }
                 }
             )

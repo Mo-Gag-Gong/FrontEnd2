@@ -29,6 +29,7 @@ import kr.ac.uc.test_2025_05_19_k.model.StudyGroup
 import kr.ac.uc.test_2025_05_19_k.ui.common.HomeGroupCard
 import kr.ac.uc.test_2025_05_19_k.ui.group.detail.GroupApplySheetContent
 import kr.ac.uc.test_2025_05_19_k.viewmodel.HomeViewModel
+import kr.ac.uc.test_2025_05_19_k.ui.common.ApplicationStatusDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +48,7 @@ fun SearchResultScreen(
     // 화면 '제목'에 표시될, 실제 검색이 실행된 검색어를 위한 상태
     var displayedQuery by remember { mutableStateOf(searchQuery) }
 
+    val dialogState by viewModel.dialogState.collectAsState()
 
     val sheetState = rememberModalBottomSheetState()
     var selectedGroup by remember { mutableStateOf<StudyGroup?>(null) }
@@ -55,6 +57,11 @@ fun SearchResultScreen(
     LaunchedEffect(searchQuery) {
         viewModel.fetchSearchResults(searchQuery)
     }
+
+    ApplicationStatusDialog(
+        dialogState = dialogState,
+        onDismiss = { viewModel.dismissDialog() }
+    )
 
     if (selectedGroup != null) {
         ModalBottomSheet(
@@ -65,16 +72,11 @@ fun SearchResultScreen(
             GroupApplySheetContent(
                 group = selectedGroup!!,
                 onApply = {
+                    // ▼▼▼ [수정] ViewModel의 applyToGroup 호출 ▼▼▼
                     scope.launch {
-                        try {
-                            viewModel.applyToGroup(selectedGroup!!.groupId)
-                            Toast.makeText(context, "가입 신청이 완료되었습니다.", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "가입 신청 실패: ${e.message}", Toast.LENGTH_SHORT).show()
-                        } finally {
-                            sheetState.hide()
-                            selectedGroup = null
-                        }
+                        sheetState.hide()
+                        viewModel.applyToGroup(selectedGroup!!.groupId)
+                        selectedGroup = null
                     }
                 }
             )
