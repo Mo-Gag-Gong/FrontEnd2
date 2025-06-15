@@ -11,14 +11,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.repository.GroupRepository
+import kr.ac.uc.test_2025_05_19_k.repository.TokenManager
 import javax.inject.Inject
 
 @HiltViewModel
 class GroupGoalDetailViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
+    private val tokenManager: TokenManager, // TokenManager 주입
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    // [수정] NavArgument에서 String 타입으로 받도록 수정
     private val groupId: String = savedStateHandle.get<String>("groupId")!!
     private val goalId: String = savedStateHandle.get<String>("goalId")!!
 
@@ -31,13 +34,9 @@ class GroupGoalDetailViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _goals = MutableStateFlow<List<GroupGoalDto>>(emptyList())
-    val goals: StateFlow<List<GroupGoalDto>> = _goals.asStateFlow()
-
-    private val _isLoadingGoals = MutableStateFlow(false)
-    val isLoadingGoals: StateFlow<Boolean> = _isLoadingGoals.asStateFlow()
-
-    val isAdmin: Boolean = savedStateHandle.get<Boolean>("isAdmin") ?: true
+    // ▼▼▼ [추가] 현재 사용자가 그룹장인지 여부를 저장하는 상태 추가 ▼▼▼
+    private val _isCurrentUserAdmin = MutableStateFlow(false)
+    val isCurrentUserAdmin: StateFlow<Boolean> = _isCurrentUserAdmin.asStateFlow()
 
     init {
         loadGoalDetails()
@@ -48,10 +47,19 @@ class GroupGoalDetailViewModel @Inject constructor(
             _isLoading.value = true
             _error.value = null
             try {
+                // ▼▼▼ [수정] 그룹장 여부 확인 로직 추가 ▼▼▼
+                // 1. 그룹 상세 정보를 가져와서 creatorId를 확인합니다.
+                val groupDetail = groupRepository.getGroupDetail(groupId.toLong())
+                val currentUserId = tokenManager.getUserId()
+                _isCurrentUserAdmin.value = (groupDetail.creatorId == currentUserId)
+
+                // 2. 기존처럼 목표 상세 정보를 가져옵니다.
                 val detail = groupRepository.getGoalDetails(groupId, goalId)
                 _goalDetail.value = detail
+
             } catch (e: Exception) {
                 _error.value = "목표 상세 정보를 불러오는 데 실패했습니다."
+                Log.e("GroupGoalDetailVM", "Failed to load details", e)
             } finally {
                 _isLoading.value = false
             }
@@ -59,6 +67,11 @@ class GroupGoalDetailViewModel @Inject constructor(
     }
 
     fun toggleDetailCompletion(detailId: Long?) {
+        // ▼▼▼ [추가] 그룹장이 아닐 경우, 함수 실행을 막습니다. ▼▼▼
+        if (!_isCurrentUserAdmin.value) {
+            Log.w("GroupGoalDetailVM", "Permission denied: Only admin can toggle completion.")
+            return
+        }
         if (detailId == null) {
             Log.e("GoalDetailViewModel", "Cannot toggle completion for null detailId")
             return
@@ -67,7 +80,7 @@ class GroupGoalDetailViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 groupRepository.toggleGoalDetail(groupId, goalId, detailId.toString())
-                loadGoalDetails()
+                loadGoalDetails() // 성공 시 최신 정보로 갱신
             } catch (e: Exception) {
                 Log.e("GoalDetailViewModel", "세부 목표 상태 변경 실패", e)
                 _error.value = "상태 변경에 실패했습니다. 다시 시도해주세요."
@@ -75,37 +88,24 @@ class GroupGoalDetailViewModel @Inject constructor(
         }
     }
 
-
     fun deleteGoal(onSuccess: () -> Unit) {
+        // ▼▼▼ [추가] 그룹장이 아닐 경우, 함수 실행을 막습니다. ▼▼▼
+        if (!_isCurrentUserAdmin.value) {
+            Log.w("GroupGoalDetailVM", "Permission denied: Only admin can delete goal.")
+            _error.value = "목표를 삭제할 권한이 없습니다."
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 groupRepository.deleteGoal(groupId, goalId)
                 Log.d("GoalDetailViewModel", "목표 삭제 성공")
-                onSuccess() // 성공 콜백 호출 (화면에서 popBackStack 처리)
+                onSuccess()
             } catch (e: Exception) {
                 Log.e("GoalDetailViewModel", "목표 삭제 실패", e)
                 _error.value = "목표 삭제에 실패했습니다."
             } finally {
                 _isLoading.value = false
-            }
-        }
-    }
-
-    fun fetchGroupGoals(forceRefresh: Boolean = false) {
-        if (!forceRefresh && (_isLoadingGoals.value || _goals.value.isNotEmpty())) return
-
-        viewModelScope.launch {
-            _isLoadingGoals.value = true
-            try {
-                // groupId는 이미 ViewModel에 선언된 값을 사용합니다.
-                val goalList = groupRepository.getGroupGoals(groupId.toString())
-                _goals.value = goalList
-            } catch (e: Exception) {
-                Log.e("AdminDetailVM", "그룹 목표 로드 실패", e)
-                // TODO: 에러 상태 관리
-            } finally {
-                _isLoadingGoals.value = false
             }
         }
     }
