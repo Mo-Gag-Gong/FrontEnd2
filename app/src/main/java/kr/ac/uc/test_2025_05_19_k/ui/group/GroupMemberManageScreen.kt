@@ -1,8 +1,10 @@
 package kr.ac.uc.test_2025_05_19_k.ui.group
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -12,10 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.flowWithLifecycle
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
@@ -28,19 +32,31 @@ fun GroupMemberManageScreen(
     viewModel: GroupMemberManageViewModel = hiltViewModel()
 ) {
     val pendingMembers by viewModel.pendingMembers.collectAsState()
-    val groupId = viewModel.groupId
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val selectedMemberProfile by viewModel.selectedMemberProfile.collectAsState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.fetchPendingMembers()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(viewModel, lifecycleOwner.lifecycle) {
+        lifecycleOwner.lifecycle.currentStateFlow
+            .collect { state ->
+                if (state == Lifecycle.State.RESUMED) {
+                    viewModel.fetchPendingMembers()
+                }
             }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
+    }
 
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+    if (selectedMemberProfile != null) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.clearSelectedMember() },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            // ▼▼▼ [수정] showKickButton 파라미터에 false 전달 ▼▼▼
+            MemberDetailSheetContent(
+                profile = selectedMemberProfile!!,
+                showKickButton = false, // 신청 목록에서는 추방 버튼을 보여주지 않음
+                onKick = {}
+            )
         }
     }
 
@@ -57,12 +73,11 @@ fun GroupMemberManageScreen(
         }
     ) { paddingValues ->
         if (pendingMembers.isEmpty()) {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+                contentAlignment = Alignment.Center
             ) {
                 Text("대기중인 신청자가 없습니다.")
             }
@@ -70,13 +85,18 @@ fun GroupMemberManageScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                items(pendingMembers) { member ->
-                    ApplicantCard(member = member) {
-                        navController.navigate("group_member_detail/$groupId/${member.userId}/PENDING")
+                itemsIndexed(pendingMembers, key = { _, item -> item.membershipId }) { index, member ->
+                    PendingMemberListItem(
+                        member = member,
+                        onViewProfileClick = { viewModel.onMemberSelected(member.userId) },
+                        onApproveClick = { viewModel.approveMember(member.userId) },
+                        onRejectClick = { viewModel.rejectMember(member.userId) }
+                    )
+                    if (index < pendingMembers.lastIndex) {
+                        Divider()
                     }
                 }
             }
@@ -84,28 +104,46 @@ fun GroupMemberManageScreen(
     }
 }
 
-// ApplicantCard Composable (기존과 동일)
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ApplicantCard(member: GroupMemberDto, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick
+private fun PendingMemberListItem(
+    member: GroupMemberDto,
+    onViewProfileClick: () -> Unit,
+    onApproveClick: () -> Unit,
+    onRejectClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onViewProfileClick),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             AsyncImage(
                 model = member.profileImage ?: "https://via.placeholder.com/150",
-                contentDescription = "신청자 프로필 사진",
+                contentDescription = "Applicant Profile Picture",
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape),
                 contentScale = ContentScale.Crop
             )
-            Text(member.userName, style = MaterialTheme.typography.bodyLarge)
+            Text(member.userName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onApproveClick) {
+                Text("승인")
+            }
+            Button(
+                onClick = onRejectClick,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("거부")
+            }
         }
     }
 }
