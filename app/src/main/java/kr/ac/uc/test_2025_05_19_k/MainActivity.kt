@@ -33,6 +33,11 @@ import kr.ac.uc.test_2025_05_19_k.util.LocationUtils.getCityNameFromLocation
 import kr.ac.uc.test_2025_05_19_k.util.LocationUtils.getCurrentLocation
 import kr.ac.uc.test_2025_05_19_k.util.RefreshEvent
 import javax.inject.Inject
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Divider
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import android.view.Window
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -54,6 +59,7 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         setContent {
             MogackoTheme { // 앱 전체 테마 적용
@@ -136,7 +142,10 @@ fun MainScreen(navController: androidx.navigation.NavHostController, startDestin
     androidx.compose.material3.Scaffold(
         bottomBar = {
             if (shouldShowBottomBar) {
-                BottomNavigationBar(navController = navController)
+                Column {
+                    Divider(thickness = 1.dp, color = Color.Black.copy(alpha = 0.5f))
+                    BottomNavigationBar(navController = navController)
+                }
             }
         }
     ) { innerPadding ->

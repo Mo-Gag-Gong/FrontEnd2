@@ -71,7 +71,8 @@ fun BottomNavigationBar(navController: NavController) {
                     indicatorColor = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent
                     // 또는 indicatorColor = Color.Transparent // 완전히 배경 강조를 없애려면
                 ),
-                alwaysShowLabel = true // 항상 라벨 표시 (기본값은 true이나 명시)
+                alwaysShowLabel = false,
+                label = null // 라벨을 명시적으로 null 처리
             )
         }
     }

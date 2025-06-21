@@ -1,20 +1,13 @@
 package kr.ac.uc.test_2025_05_19_k.ui.group.detail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -22,24 +15,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,16 +31,20 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
-import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalListScreen
-import kr.ac.uc.test_2025_05_19_k.viewmodel.JoinedGroupDetailViewModel
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.LinearProgressIndicator
-import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.ui.group.ChatTabScreen
+import kr.ac.uc.test_2025_05_19_k.ui.group.GoalStatusChip
+import kr.ac.uc.test_2025_05_19_k.ui.group.MemberDetailSheetContent
+import kr.ac.uc.test_2025_05_19_k.util.toDate
+import kr.ac.uc.test_2025_05_19_k.viewmodel.JoinedGroupDetailViewModel
+import java.time.LocalDate
+import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalCard
+import kr.ac.uc.test_2025_05_19_k.ui.group.GoalDetailSheetContent
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun JoinedGroupDetailScreen(
     navController: NavController,
@@ -74,9 +56,72 @@ fun JoinedGroupDetailScreen(
     val goals by viewModel.goals.collectAsState()
     val currentUserId by viewModel.currentUserId.collectAsState()
 
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val selectedMemberProfile by viewModel.selectedMemberProfile.collectAsState()
+
+    // ▼▼▼ [추가] 탈퇴 확인 다이얼로그의 표시 여부를 관리하는 상태 ▼▼▼
+    var showLeaveConfirmDialog by remember { mutableStateOf(false) }
+
+    val goalSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val selectedGoalDetail by viewModel.selectedGoalDetail.collectAsState()
+
+
     val tabs = listOf("공지사항", "멤버", "그룹 목표", "채팅", "모임")
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val coroutineScope = rememberCoroutineScope()
+
+    if (selectedGoalDetail != null) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.clearSelectedGoal() },
+            sheetState = goalSheetState
+        ) {
+            GoalDetailSheetContent(
+                goal = selectedGoalDetail!!,
+                onEditClick = {},
+                onDeleteClick = {},
+                onToggleDetail = {},
+                isReadOnly = true // 참여자는 읽기 전용
+            )
+        }
+    }
+
+    // ▼▼▼ [추가] 탈퇴 확인 다이얼로그 UI ▼▼▼
+    if (showLeaveConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showLeaveConfirmDialog = false },
+            title = { Text("그룹 탈퇴") },
+            text = { Text("정말로 이 그룹을 탈퇴하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.leaveGroup() // ViewModel의 탈퇴 함수 호출
+                        showLeaveConfirmDialog = false
+                    }
+                ) {
+                    Text("탈퇴", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLeaveConfirmDialog = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
+    if (selectedMemberProfile != null) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.clearSelectedMember() },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            MemberDetailSheetContent(
+                profile = selectedMemberProfile!!,
+                showKickButton = false,
+                onKick = {}
+            )
+        }
+    }
 
     LaunchedEffect(key1 = Unit) {
         viewModel.leaveGroupEvent.collectLatest {
@@ -140,15 +185,17 @@ fun JoinedGroupDetailScreen(
                     1 -> MembersTabContent(
                         members = members,
                         currentUserId = currentUserId,
-                        onLeaveClick = { viewModel.leaveGroup() },
+                        // ▼▼▼ [수정] 탈퇴 버튼 클릭 시, 바로 함수를 호출하는 대신 다이얼로그를 띄우도록 변경 ▼▼▼
+                        onLeaveClick = { showLeaveConfirmDialog = true },
                         onMemberClick = { memberId ->
-                            navController.navigate("group_member_detail/${viewModel.groupId}/${memberId}/ACTIVE")
+                            viewModel.onMemberSelected(memberId)
                         }
                     )
                     2 -> GoalsTabContent(
-                        navController = navController,
                         goals = goals,
-                        groupId = viewModel.groupId
+                        onGoalClick = { goalId ->
+                            viewModel.onGoalSelected(goalId)
+                        }
                     )
                     3 -> ChatTabScreen(navController = navController, groupId = viewModel.groupId)
                     4 -> PlaceholderContent(text = "모임 기능은 준비 중입니다.")
@@ -165,22 +212,49 @@ fun NoticesTabContent(notices: List<GroupNoticeDto>) {
         PlaceholderContent(text = "등록된 공지사항이 없습니다.")
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxSize()
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            items(notices) { notice ->
-                ParticipantNoticeCard(notice = notice)
+            itemsIndexed(items = notices, key = { _, it -> it.noticeId }) { index, notice ->
+                ParticipantNoticeItem(notice = notice)
+                if (index < notices.lastIndex) {
+                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                }
             }
         }
     }
 }
 
 @Composable
+fun ParticipantNoticeItem(notice: GroupNoticeDto) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(notice.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(notice.content, style = MaterialTheme.typography.bodyMedium, lineHeight = 24.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "작성자",
+                modifier = Modifier.size(16.dp),
+                tint = Color.Gray
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = notice.creatorName,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
+        }
+    }
+}
+
+@Composable
 fun GoalsTabContent(
-    navController: NavController,
     goals: List<GroupGoalDto>,
-    groupId: Long
+    onGoalClick: (Long) -> Unit
 ) {
     if (goals.isEmpty()) {
         PlaceholderContent(text = "등록된 그룹 목표가 없습니다.")
@@ -190,44 +264,68 @@ fun GoalsTabContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(goals) { goal ->
-                ParticipantGoalItem(goal = goal) {
-                    navController.navigate("group_goal_detail/${groupId}/${goal.goalId}?isAdmin=false")
+            items(items = goals, key = { it.goalId }) { goal ->
+                // 관리자 화면과 동일한 GroupGoalCard 재사용
+                GroupGoalCard(goal = goal) {
+                    onGoalClick(goal.goalId)
                 }
             }
         }
     }
 }
 
-// [신규] 참여자용 그룹 목표 아이템 카드
 @Composable
 fun ParticipantGoalItem(goal: GroupGoalDto, onClick: () -> Unit) {
+    // 날짜를 기준으로 상태를 동적으로 계산
+    val today = LocalDate.now()
+    val startDate = toDate(goal.startDate)
+    val endDate = toDate(goal.endDate)
+    val status = when {
+        startDate == null || endDate == null -> "날짜오류"
+        today.isBefore(startDate) -> "시작 전"
+        today.isAfter(endDate) -> "완료"
+        else -> "진행중"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick) // 카드 클릭 기능
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant // 연한 회색 배경
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(goal.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "${goal.startDate} ~ ${goal.endDate}",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            // 진행률 표시
-            LinearProgressIndicator(
-                progress = { goal.completedCount.toFloat() / goal.totalCount.toFloat() },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = "달성률: ${goal.completedCount} / ${goal.totalCount}",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .align(Alignment.End)
-                    .padding(top = 4.dp)
-            )
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 상단 행: 제목과 상태 칩
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = goal.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                GoalStatusChip(status = status)
+            }
+            // 하단: 날짜 정보
+            Column {
+                Text(
+                    text = "시작 날짜: ${goal.startDate}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+                Text(
+                    text = "종료 날짜: ${goal.endDate}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
         }
     }
 }
@@ -256,69 +354,69 @@ fun MembersTabContent(
     members: List<GroupMemberDto>,
     currentUserId: Long?,
     onLeaveClick: () -> Unit,
-    onMemberClick: (Long) -> Unit // [추가] 멤버 ID를 받는 클릭 핸들러
+    onMemberClick: (Long) -> Unit
 ) {
     if (members.isEmpty()) {
         PlaceholderContent(text = "멤버 정보를 불러오는 중입니다...")
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxSize()
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            items(members) { member ->
-                MemberItem(
+            itemsIndexed(items = members, key = { _, member -> member.userId }) { index, member ->
+                MemberListItem(
                     member = member,
                     isCurrentUser = member.userId == currentUserId,
                     onLeaveClick = onLeaveClick,
-                    onMemberClick = { onMemberClick(member.userId) } // [수정] 클릭 시 멤버 ID 전달
+                    onMemberClick = { onMemberClick(member.userId) }
                 )
+                if (index < members.lastIndex) {
+                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                }
             }
         }
     }
 }
 
-// 멤버 아이템
-@OptIn(ExperimentalMaterial3Api::class) // [추가] Card의 onClick을 위해 필요
 @Composable
-fun MemberItem(
+private fun MemberListItem(
     member: GroupMemberDto,
     isCurrentUser: Boolean,
     onLeaveClick: () -> Unit,
-    onMemberClick: () -> Unit // [추가] 클릭 핸들러
+    onMemberClick: () -> Unit
 ) {
-    // [수정] Card에 onClick 속성 추가
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onMemberClick
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onMemberClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            AsyncImage(
-                model = member.profileImage ?: "https://via.placeholder.com/150",
-                contentDescription = "멤버 프로필 사진",
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
+        AsyncImage(
+            model = member.profileImage ?: "https://via.placeholder.com/150",
+            contentDescription = "멤버 프로필 사진",
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = if (isCurrentUser) "${member.userName} (나)" else member.userName,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (isCurrentUser) FontWeight.Bold else FontWeight.Normal
+        )
+        Spacer(modifier = Modifier.weight(1f))
+
+        if (isCurrentUser) {
+            TextButton(onClick = onLeaveClick) {
+                Text("탈퇴", color = MaterialTheme.colorScheme.error)
+            }
+        } else {
+            Text(
+                text = "가입일 ${member.joinDate}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(member.userName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                Text(
-                    text = "가입일: ${member.joinDate}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
-            }
-            if (isCurrentUser) {
-                // '탈퇴' 버튼은 카드 전체 클릭에 방해되지 않도록 별도 클릭 핸들러를 가짐
-                TextButton(onClick = onLeaveClick) {
-                    Text("탈퇴", color = MaterialTheme.colorScheme.error)
-                }
-            }
         }
     }
 }

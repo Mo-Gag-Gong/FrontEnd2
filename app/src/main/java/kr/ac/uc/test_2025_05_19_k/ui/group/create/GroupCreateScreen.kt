@@ -1,145 +1,242 @@
 package kr.ac.uc.test_2025_05_19_k.ui.group.create
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
-// M2 imports - to be replaced or used carefully if needed for specific M2 components not yet migrated
-// import androidx.compose.material.* // Comment out or remove if fully migrating to M3 for these components
-
-// M3 imports
-import androidx.compose.material3.Button // M3 Button
-import androidx.compose.material3.DropdownMenuItem // M3 DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api // If you use experimental M3 APIs
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.Icon // M3 Icon
-import androidx.compose.material3.OutlinedTextField // M3 OutlinedTextField
-import androidx.compose.material3.Text // M3 Text
-
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kr.ac.uc.test_2025_05_19_k.viewmodel.GroupCreateViewModel
-import kr.ac.uc.test_2025_05_19_k.model.Interest
 
-// No need to import menuAnchor separately if using ExposedDropdownMenuDefaults directly
-// import androidx.compose.material3.ExposedDropdownMenuDefaults.menuAnchor // This line can be removed
-
-@OptIn(ExperimentalMaterial3Api::class) // Use ExperimentalMaterial3Api for M3
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupCreateScreen(
     navController: NavController,
     viewModel: GroupCreateViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var requirements by remember { mutableStateOf("") }
+
+    // 카테고리 상태
     var categoryExpanded by remember { mutableStateOf(false) }
-    var selectedCategory by remember { mutableStateOf("선택") }
-
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
     val interests by viewModel.interests.collectAsState()
-    var maxMembers by remember { mutableStateOf("") }
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        OutlinedTextField( // This should now be androidx.compose.material3.OutlinedTextField
-            value = title,
-            onValueChange = { if (it.length <= 20) title = it },
-            label = { Text("그룹명 (최대 20자)") }, // androidx.compose.material3.Text
-            modifier = Modifier.fillMaxWidth()
-        )
+    // 최대 멤버 수 상태
+    var maxMembersExpanded by remember { mutableStateOf(false) }
+    var selectedMaxMembers by remember { mutableStateOf<Int?>(null) }
+    val memberCountList = (2..20).toList()
 
-        Spacer(modifier = Modifier.height(8.dp))
+    // '완료' 버튼 활성화 여부
+    val isFormValid by remember(title, selectedCategory, selectedMaxMembers) {
+        derivedStateOf {
+            title.isNotBlank() && selectedCategory != null && selectedMaxMembers != null
+        }
+    }
 
-        OutlinedTextField( // androidx.compose.material3.OutlinedTextField
-            value = description,
-            onValueChange = { if (it.length <= 500) description = it },
-            label = { Text("소개 문구 (최대 500자)") }, // androidx.compose.material3.Text
-            modifier = Modifier.fillMaxWidth().height(100.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField( // androidx.compose.material3.OutlinedTextField
-            value = requirements,
-            onValueChange = { if (it.length <= 500) requirements = it },
-            label = { Text("가입 요구사항 (최대 500자)") }, // androidx.compose.material3.Text
-            modifier = Modifier.fillMaxWidth().height(100.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        ExposedDropdownMenuBox(
-            expanded = categoryExpanded,
-            onExpandedChange = { categoryExpanded = !categoryExpanded },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            OutlinedTextField( // androidx.compose.material3.OutlinedTextField
-                value = selectedCategory,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("카테고리") }, // androidx.compose.material3.Text
-                trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) }, // androidx.compose.material3.Icon
+    Scaffold(
+        topBar = {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor() // This should now resolve correctly
-            )
-            ExposedDropdownMenu(
-                expanded = categoryExpanded,
-                onDismissRequest = { categoryExpanded = false }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                interests.forEach { interest ->
-                    DropdownMenuItem( // androidx.compose.material3.DropdownMenuItem
-                        text = { Text(interest.interestName) }, // androidx.compose.material3.Text
-                        onClick = {
-                            selectedCategory = interest.interestName
-                            categoryExpanded = false
-                        }
-                    )
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(Icons.Default.Close, contentDescription = "닫기")
+                }
+                TextButton(
+                    onClick = {
+                        viewModel.createGroup(
+                            title = title,
+                            description = description,
+                            requirements = requirements,
+                            category = selectedCategory!!,
+                            maxMembers = selectedMaxMembers!!,
+                            onSuccess = {
+                                Toast.makeText(context, "그룹이 생성되었습니다.", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            },
+                            onError = { error ->
+                                Log.e("GroupCreateScreen", "그룹 생성 실패: $error")
+                                Toast.makeText(context, "그룹 생성 실패: $error", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    },
+                    enabled = isFormValid
+                ) {
+                    Text("완료")
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField( // androidx.compose.material3.OutlinedTextField
-            value = maxMembers,
-            onValueChange = { if (it.all { ch -> ch.isDigit() } && it.length <= 2) maxMembers = it },
-            label = { Text("최대 인원 (숫자)") }, // androidx.compose.material3.Text
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button( // androidx.compose.material3.Button
-            onClick = {
-                val members = maxMembers.toIntOrNull() ?: 0
-                if (
-                    title.isNotBlank() && selectedCategory != "선택" && members in 2..99
-                ) {
-                    viewModel.createGroup(
-                        title = title,
-                        description = description,
-                        requirements = requirements,
-                        category = selectedCategory,
-                        maxMembers = members,
-                        onSuccess = { navController.popBackStack() },
-                        onError = { error ->
-                            Log.e("GroupCreateScreen", "그룹 생성 실패: $error")
-                        }
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Text("그룹 생성") // androidx.compose.material3.Text
+            // 스터디 그룹 이름
+            LabeledTextField(
+                label = "스터디 그룹 이름",
+                value = title,
+                onValueChange = { title = it },
+                maxLength = 20
+            )
+
+            // 카테고리 & 최대 멤버 수
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("카테고리", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ExposedDropdownMenuBox(
+                        expanded = categoryExpanded,
+                        onExpandedChange = { categoryExpanded = !categoryExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedCategory ?: "선택해주세요",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFFF3F3F3),
+                                unfocusedContainerColor = Color(0xFFF3F3F3),
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = categoryExpanded,
+                            onDismissRequest = { categoryExpanded = false }
+                        ) {
+                            interests.forEach { interest ->
+                                DropdownMenuItem(
+                                    text = { Text(interest.interestName) },
+                                    onClick = {
+                                        selectedCategory = interest.interestName
+                                        categoryExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("최대 멤버 수", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ExposedDropdownMenuBox(
+                        expanded = maxMembersExpanded,
+                        onExpandedChange = { maxMembersExpanded = !maxMembersExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedMaxMembers?.toString() ?: "선택해주세요",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = maxMembersExpanded) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFFF3F3F3),
+                                unfocusedContainerColor = Color(0xFFF3F3F3),
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = maxMembersExpanded,
+                            onDismissRequest = { maxMembersExpanded = false }
+                        ) {
+                            memberCountList.forEach { count ->
+                                DropdownMenuItem(
+                                    text = { Text("$count 명") },
+                                    onClick = {
+                                        selectedMaxMembers = count
+                                        maxMembersExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 소개문
+            LabeledTextField(
+                label = "소개문",
+                value = description,
+                onValueChange = { description = it },
+                maxLength = 500,
+                modifier = Modifier.height(150.dp)
+            )
+
+            // 가입 요구 사항
+            LabeledTextField(
+                label = "가입 요구 사항",
+                value = requirements,
+                onValueChange = { requirements = it },
+                maxLength = 500,
+                modifier = Modifier.height(150.dp)
+            )
         }
+    }
+}
+
+@Composable
+private fun LabeledTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    maxLength: Int,
+    modifier: Modifier = Modifier
+) {
+    Column {
+        Text(label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        TextField(
+            value = value,
+            onValueChange = { if (it.length <= maxLength) onValueChange(it) },
+            modifier = modifier.fillMaxWidth(),
+            colors = TextFieldDefaults.colors(
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                focusedContainerColor = Color(0xFFF3F3F3),
+                unfocusedContainerColor = Color(0xFFF3F3F3)
+            ),
+            shape = RoundedCornerShape(12.dp),
+            supportingText = {
+                Text(
+                    text = "${value.length} / $maxLength",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.End,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        )
     }
 }

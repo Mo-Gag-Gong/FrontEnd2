@@ -21,7 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.viewmodel.GroupGoalViewModel
-import kr.ac.uc.test_2025_05_19_k.ui.group.common.GoalItem
+import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,7 +66,7 @@ fun GroupGoalListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(goals) { goal ->
-                        GoalItem(goal = goal) {
+                        GroupGoalCard(goal = goal) {
                             navController.navigate("goal_detail/$groupId/${goal.goalId}")
                         }
                     }
