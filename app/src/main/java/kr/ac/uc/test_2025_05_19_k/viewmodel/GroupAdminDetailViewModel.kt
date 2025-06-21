@@ -20,6 +20,7 @@ import kr.ac.uc.test_2025_05_19_k.model.UserProfileWithStatsDto
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupChatCreateRequest
 import kr.ac.uc.test_2025_05_19_k.repository.TokenManager
 import kr.ac.uc.test_2025_05_19_k.repository.UserRepository
+import kr.ac.uc.test_2025_05_19_k.model.GoalDetailDto
 import retrofit2.HttpException
 
 // ▼▼▼ [수정] 생성자에 UserRepository 추가 ▼▼▼
@@ -77,12 +78,15 @@ class GroupAdminDetailViewModel @Inject constructor(
     private var currentChatPage = 0
     private var isChatLastPage = false
 
-    // ▼▼▼ [추가] 멤버 상세 정보 관련 상태 변수 및 함수들 ▼▼▼
     private val _selectedMemberProfile = MutableStateFlow<UserProfileWithStatsDto?>(null)
     val selectedMemberProfile: StateFlow<UserProfileWithStatsDto?> = _selectedMemberProfile.asStateFlow()
 
     private val _hasPendingMembers = MutableStateFlow(false)
     val hasPendingMembers: StateFlow<Boolean> = _hasPendingMembers.asStateFlow()
+
+    private val _selectedGoalDetail = MutableStateFlow<GroupGoalDto?>(null)
+    val selectedGoalDetail: StateFlow<GroupGoalDto?> = _selectedGoalDetail.asStateFlow()
+
 
     init {
         if (groupId != -1L) {
@@ -268,6 +272,55 @@ class GroupAdminDetailViewModel @Inject constructor(
                 fetchInitialChats()
             } catch (e: Exception) {
                 Log.e("AdminDetailVM", "메시지 전송 실패", e)
+            }
+        }
+    }
+
+    fun onGoalSelected(goalId: Long) {
+        viewModelScope.launch {
+            try {
+                _selectedGoalDetail.value = groupRepository.getGoalDetails(groupId.toString(), goalId.toString())
+            } catch (e: Exception) {
+                Log.e("AdminDetailVM", "Failed to get goal details", e)
+            }
+        }
+    }
+
+    /**
+     * 목표 상세 정보 시트를 닫습니다.
+     */
+    fun clearSelectedGoal() {
+        _selectedGoalDetail.value = null
+    }
+
+    /**
+     * 세부 목표의 완료 상태를 토글합니다.
+     */
+    fun toggleGoalDetailCompletion(detailId: Long) {
+        val goal = _selectedGoalDetail.value ?: return
+        viewModelScope.launch {
+            try {
+                groupRepository.toggleGoalDetail(groupId.toString(), goal.goalId.toString(), detailId.toString())
+                // 성공 시, 최신 정보로 갱신
+                onGoalSelected(goal.goalId)
+            } catch (e: Exception) {
+                Log.e("AdminDetailVM", "Failed to toggle goal detail", e)
+            }
+        }
+    }
+
+    /**
+     * 현재 선택된 목표를 삭제합니다.
+     */
+    fun deleteSelectedGoal(onSuccess: () -> Unit) {
+        val goal = _selectedGoalDetail.value ?: return
+        viewModelScope.launch {
+            try {
+                groupRepository.deleteGoal(groupId.toString(), goal.goalId.toString())
+                onSuccess()
+                fetchGroupGoals(forceRefresh = true) // 목록 새로고침
+            } catch (e: Exception) {
+                Log.e("AdminDetailVM", "Failed to delete goal", e)
             }
         }
     }

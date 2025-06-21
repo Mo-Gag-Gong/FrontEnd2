@@ -311,30 +311,6 @@ fun AppNavGraph(
             }
         }
 
-        // 그룹 목표 상세 화면
-        composable(
-            route = "group_goal_detail/{groupId}/{goalId}?isAdmin={isAdmin}",
-            arguments = listOf(
-                // [수정] NavType을 StringType으로 변경하여 ViewModel과 타입을 맞춥니다.
-                navArgument("groupId") { type = NavType.StringType },
-                navArgument("goalId") { type = NavType.StringType },
-                navArgument("isAdmin") { type = NavType.BoolType; defaultValue = true }
-            )
-        ) { backStackEntry ->
-            // [수정] 인자를 String으로 추출하여 GroupGoalDetailScreen에 전달합니다.
-            val groupId = backStackEntry.arguments?.getString("groupId")
-            val goalId = backStackEntry.arguments?.getString("goalId")
-
-            if (groupId != null && goalId != null) {
-                GroupGoalDetailScreen(
-                    navController = navController,
-                    groupId = groupId,
-                    goalId = goalId
-                )
-            } else {
-                Text("오류: 유효하지 않은 목표 정보입니다.")
-            }
-        }
 
         // 그룹 목표 생성 화면
         composable(

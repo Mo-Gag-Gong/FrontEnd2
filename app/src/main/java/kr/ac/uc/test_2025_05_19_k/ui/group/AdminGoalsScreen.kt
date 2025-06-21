@@ -6,19 +6,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalCard
 import kr.ac.uc.test_2025_05_19_k.viewmodel.GroupAdminDetailViewModel
+import androidx.compose.runtime.livedata.observeAsState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminGoalsScreen(
     navController: NavController,
@@ -32,17 +31,52 @@ fun AdminGoalsScreen(
         ?.getLiveData<Boolean>("should_refresh_goals")
         ?.observeAsState()
 
+
+    // ▼▼▼ [추가] BottomSheet 상태 관리 ▼▼▼
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val selectedGoal by viewModel.selectedGoalDetail.collectAsState()
+    val scope = rememberCoroutineScope()
+
+
     LaunchedEffect(shouldRefreshState?.value) {
         if (shouldRefreshState?.value == true) {
+            // 1. 신호가 true이면, 강제로 목록을 새로고침
             viewModel.fetchGroupGoals(forceRefresh = true)
-            navController.currentBackStackEntry
-                ?.savedStateHandle
-                ?.remove<Boolean>("should_refresh_goals")
+            // 2. 신호를 사용했으므로 다시 false로 만들어 중복 새로고침 방지
+            navController.currentBackStackEntry?.savedStateHandle?.set("should_refresh_goals", false)
         }
     }
 
-    LaunchedEffect(key1 = Unit) {
+    LaunchedEffect(Unit) {
         viewModel.fetchGroupGoals()
+    }
+
+    // ▼▼▼ [추가] 선택된 목표가 있을 때만 BottomSheet를 띄움 ▼▼▼
+    if (selectedGoal != null) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.clearSelectedGoal() },
+            sheetState = sheetState
+        ) {
+            GoalDetailSheetContent(
+                goal = selectedGoal!!,
+                onEditClick = {
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        viewModel.clearSelectedGoal()
+                        navController.navigate("goal_edit/$groupId/${selectedGoal!!.goalId}")
+                    }
+                },
+                onDeleteClick = {
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        viewModel.deleteSelectedGoal {
+                            viewModel.clearSelectedGoal()
+                        }
+                    }
+                },
+                onToggleDetail = { detailId ->
+                    viewModel.toggleGoalDetailCompletion(detailId)
+                }
+            )
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -53,7 +87,6 @@ fun AdminGoalsScreen(
                 Text("등록된 그룹 목표가 없습니다.", style = MaterialTheme.typography.bodyLarge)
             }
         } else {
-            // ▼▼▼ [수정] LazyColumn에서 GroupGoalCard 사용 ▼▼▼
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
@@ -61,17 +94,14 @@ fun AdminGoalsScreen(
             ) {
                 items(items = goals, key = { it.goalId }) { goal ->
                     GroupGoalCard(goal = goal) {
-                        navController.navigate("group_goal_detail/$groupId/${goal.goalId}")
+                        viewModel.onGoalSelected(goal.goalId)
                     }
                 }
             }
         }
 
-        // ▼▼▼ [수정] FAB를 ExtendedFloatingActionButton으로 변경 ▼▼▼
         ExtendedFloatingActionButton(
-            onClick = {
-                navController.navigate("goal_create/$groupId")
-            },
+            onClick = { navController.navigate("goal_create/$groupId") },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
