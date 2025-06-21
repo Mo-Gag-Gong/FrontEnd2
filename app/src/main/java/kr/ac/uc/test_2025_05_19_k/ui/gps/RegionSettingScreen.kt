@@ -1,6 +1,7 @@
 package kr.ac.uc.test_2025_05_19_k.ui.gps
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -46,6 +47,13 @@ import kotlinx.coroutines.CoroutineScope
 import kr.ac.uc.test_2025_05_19_k.data.local.UserPreference
 import kr.ac.uc.test_2025_05_19_k.viewmodel.ProfileInputViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.submitProfile
+
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.Priority
+import android.content.IntentSender
+import androidx.activity.result.IntentSenderRequest
+
 
 // 현재 네비게이션 스택 기록용
 @Composable
@@ -147,111 +155,135 @@ fun isLocationEnabled(context: Context): Boolean {
 @Composable
 fun RegionSettingScreen(
     navController: NavController,
-    mode: String, // "signup" 또는 "cache"
-    interestIds: List<Long> = emptyList(), // 선택사항이므로 기본값 제공
+    mode: String,
+    interestIds: List<Long> = emptyList(),
     onBack: () -> Unit = {},
-    onDone:  (String) -> Unit = {},
+    onDone: (String) -> Unit = {},
     viewModel: RegionSettingViewModel = hiltViewModel()
-
 ) {
-    val navStack = RememberedNavStack(navController)
-    val isRegionSet by viewModel.isRegionSet.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val profileViewModel: ProfileInputViewModel = hiltViewModel()
 
-    // 위치 권한 상태
     var permissionGranted by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
         )
     }
-    var isRequestingPermission by remember { mutableStateOf(false) }
     var isLocationEnabledState by remember { mutableStateOf(isLocationEnabled(context)) }
-
-    // 위치 관련 상태
-    var latitude by remember { mutableStateOf<Double?>(null) }
-    var longitude by remember { mutableStateOf<Double?>(null) }
     var regionName by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-
-    // ✅ 권한 안내/설정 이동 다이얼로그 상태
     var showPermissionDialog by remember { mutableStateOf(false) }
 
+    // 위치 권한 런처
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         permissionGranted = isGranted
-        isRequestingPermission = false
-        if (!isGranted) {
-            // 권한 거절 시 안내 다이얼로그 띄움
-            showPermissionDialog = true
-        }
+        if (!isGranted) showPermissionDialog = true
     }
 
+    // 시스템 GPS 다이얼로그 런처
+    val gpsDialogLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            isLocationEnabledState = isLocationEnabled(context)
 
+            if (isLocationEnabledState && permissionGranted && regionName == null) {
+                coroutineScope.launch {
+                    isLoading = true
+                    val location = getCurrentLocation(context)
+                    if (location != null) {
+                        val city = getCityNameFromLocation(context, location.latitude, location.longitude)
+                        if (!city.isNullOrBlank()) {
+                            regionName = city
 
-    LaunchedEffect(permissionGranted, isLocationEnabledState) {
-        isLocationEnabledState = isLocationEnabled(context)
-
-        if (permissionGranted && isLocationEnabledState && regionName == null) {
-            coroutineScope.fetchLocation(
-                context = context,
-                onResult = { lat, lon, region, error ->
-                    latitude = lat
-                    longitude = lon
-                    regionName = region
-                    errorMsg = error
+                            // ✅ 아래 부분이 추가된 핵심: mode에 따라 자동 저장 및 화면 이동
+                            when (mode) {
+                                "signup" -> {
+                                    profileViewModel.updateLocation(city)
+                                    profileViewModel.updateSelectedInterests(interestIds)
+                                    profileViewModel.submitProfile(
+                                        onSuccess = {
+                                            navController.navigate("next_signup_step") {
+                                                popUpTo("region_setting_signup") { inclusive = true }
+                                            }
+                                        },
+                                        onError = {
+                                            Toast.makeText(context, "프로필 저장 실패: $it", Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                }
+                                "cache" -> {
+                                    UserPreference(context).saveLocation(city)
+                                    viewModel.setRegionSet(true)
+                                    navController.navigate("home") {
+                                        popUpTo("region_setting_cache") { inclusive = true }
+                                    }
+                                }
+                                "edit" -> {
+                                    profileViewModel.updateLocation(city)
+                                    profileViewModel.submitProfile(
+                                        onSuccess = { navController.popBackStack() },
+                                        onError = { msg ->
+                                            Toast.makeText(context, "위치 수정 실패: $msg", Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                }
+                            }
+                        } else {
+                            errorMsg = "주소를 불러올 수 없습니다."
+                        }
+                    } else {
+                        errorMsg = "위치 정보를 불러올 수 없습니다."
+                    }
+                    isLoading = false
                 }
-            )
+            }
         }
     }
 
 
 
+    // 시스템 GPS 설정 다이얼로그 요청
+    fun requestEnableGps() {
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY, 1000
+        ).build()
 
-    LaunchedEffect(key1 = isLocationEnabledState) {
-        if (isLocationEnabledState && permissionGranted && regionName == null) {
+        val builder = LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+            .setAlwaysShow(true)
+
+        val client = LocationServices.getSettingsClient(context)
+        val task = client.checkLocationSettings(builder.build())
+
+        task.addOnFailureListener { e ->
+            if (e is ResolvableApiException) {
+                try {
+                    val intentSenderRequest = IntentSenderRequest.Builder(e.resolution).build()
+                    gpsDialogLauncher.launch(intentSenderRequest)
+                } catch (ex: IntentSender.SendIntentException) {
+                    Toast.makeText(context, "GPS 설정 요청 실패", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // 위치 자동 조회
+    LaunchedEffect(permissionGranted, isLocationEnabledState, regionName) {
+        isLocationEnabledState = isLocationEnabled(context)
+        if (permissionGranted && isLocationEnabledState && regionName == null) {
             isLoading = true
             val location = getCurrentLocation(context)
             if (location != null) {
                 val city = getCityNameFromLocation(context, location.latitude, location.longitude)
                 if (!city.isNullOrBlank()) {
-                    regionName = city
-                }
-            }
-            isLoading = false
-        }
-    }
-
-
-
-    // 위치 좌표 받아오기 함수
-    fun fetchLocation() {
-        coroutineScope.launch {
-            isLoading = true
-            errorMsg = null
-            regionName = null
-            latitude = null
-            longitude = null
-
-            if (!permissionGranted) {
-                errorMsg = "위치 권한이 필요합니다."
-                isLoading = false
-                return@launch
-            }
-            if (!isLocationEnabledState) {
-                errorMsg = "위치 서비스(GPS)가 꺼져 있습니다."
-                isLoading = false
-                return@launch
-            }
-            val location = getCurrentLocation(context)
-            if (location != null) {
-                latitude = location.latitude
-                longitude = location.longitude
-                val city = getCityNameFromLocation(context, latitude!!, longitude!!)
-                if (city != null) {
                     regionName = city
                 } else {
                     errorMsg = "주소를 불러올 수 없습니다."
@@ -263,6 +295,7 @@ fun RegionSettingScreen(
         }
     }
 
+    // 화면 UI
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -279,49 +312,34 @@ fun RegionSettingScreen(
             }
             Spacer(Modifier.weight(1f))
             Button(
-
                 onClick = {
-                    Log.d("RegionSettingScreen", "완료 클릭됨: $regionName")
-
                     regionName?.let { selectedRegion ->
                         when (mode) {
                             "signup" -> {
-                                // 🔹 캐시에 먼저 저장
                                 profileViewModel.updateLocation(selectedRegion)
                                 profileViewModel.updateSelectedInterests(interestIds)
-
-                                // 🔸 서버에 프로필 제출
                                 profileViewModel.submitProfile(
                                     onSuccess = {
                                         navController.navigate("next_signup_step") {
                                             popUpTo("region_setting_signup") { inclusive = true }
                                         }
                                     },
-                                    onError = { msg ->
-                                        Toast.makeText(context, "프로필 저장 실패: $msg", Toast.LENGTH_SHORT).show()
+                                    onError = {
+                                        Toast.makeText(context, "프로필 저장 실패: $it", Toast.LENGTH_SHORT).show()
                                     }
                                 )
                             }
-
                             "cache" -> {
-                                // 🔹 서버 전송 없이 캐시에만 저장
                                 UserPreference(context).saveLocation(selectedRegion)
                                 viewModel.setRegionSet(true)
-
                                 navController.navigate("home") {
                                     popUpTo("region_setting_cache") { inclusive = true }
                                 }
                             }
-
                             "edit" -> {
-                                // 🔹 캐시에 저장 (서버 전송용)
                                 profileViewModel.updateLocation(selectedRegion)
-
-                                // 🔸 서버에 프로필 반영
                                 profileViewModel.submitProfile(
-                                    onSuccess = {
-                                        navController.popBackStack()
-                                    },
+                                    onSuccess = { navController.popBackStack() },
                                     onError = { msg ->
                                         Toast.makeText(context, "위치 수정 실패: $msg", Toast.LENGTH_SHORT).show()
                                     }
@@ -332,107 +350,107 @@ fun RegionSettingScreen(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF14C7E5)),
                 shape = RoundedCornerShape(16.dp),
-                enabled = (regionName != null && !isLoading)
+                enabled = regionName != null && !isLoading
             ) {
                 Text("완료!", color = Color.White, fontWeight = FontWeight.Bold)
             }
-
         }
 
         Spacer(Modifier.height(40.dp))
 
         when {
             !permissionGranted -> {
-                Text(
-                    "위치 권한이 필요합니다.",
-                    color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 20.sp,
-                    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
-                )
+                Text("위치 권한이 필요합니다.", color = Color.Red, fontSize = 20.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        isRequestingPermission = true
-                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                    }
-                ) { Text("권한 허용하기") }
+                Button(onClick = { permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }) {
+                    Text("권한 허용하기")
+                }
             }
+
             !isLocationEnabledState -> {
-                Text(
-                    "위치 서비스(GPS)가 꺼져 있습니다.",
-                    color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 20.sp,
-                    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
-                )
+                Text("위치 서비스(GPS)가 꺼져 있습니다.", color = Color.Red, fontSize = 20.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                    }
-                ) { Text("위치 서비스 켜기") }
+                Button(onClick = { requestEnableGps() }) {
+                    Text("위치 서비스 켜기")
+                }
             }
+
             isLoading -> {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
+
             regionName != null -> {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "내 위치: $regionName",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 28.sp,
-                        modifier = Modifier.padding(vertical = 20.dp)
-                    )
+                    Text("내 위치: $regionName", fontWeight = FontWeight.Bold, fontSize = 28.sp, modifier = Modifier.padding(vertical = 20.dp))
                     Text("확인 후 '완료!'를 눌러주세요.", fontSize = 16.sp)
                     Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = { fetchLocation() }, // 위치 재조회
-                        enabled = !isLoading
-                    ) { Text("다시 위치 조회") }
+                    Button(onClick = {
+                        coroutineScope.launch {
+                            isLoading = true
+                            regionName = null
+                            val location = getCurrentLocation(context)
+                            if (location != null) {
+                                val city = getCityNameFromLocation(context, location.latitude, location.longitude)
+                                regionName = city
+                            }
+                            isLoading = false
+                        }
+                    }) {
+                        Text("다시 위치 조회")
+                    }
                 }
             }
+
             else -> {
-                // 주소 조회 실패 or regionName == null (초기 화면)
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     errorMsg?.let {
-                        Text(
-                            text = it,
-                            color = Color.Red,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.padding(vertical = 12.dp)
-                        )
+                        Text(it, color = Color.Red, fontSize = 18.sp, modifier = Modifier.padding(vertical = 12.dp))
                     }
-                    Button(
-                        onClick = { fetchLocation() },
-                        enabled = !isLoading
-                    ) { Text("내 위치 자동으로 찾기") }
+                    Button(onClick = {
+                        coroutineScope.launch {
+                            isLoading = true
+                            val location = getCurrentLocation(context)
+                            if (location != null) {
+                                val city = getCityNameFromLocation(context, location.latitude, location.longitude)
+                                regionName = city
+                            }
+                            isLoading = false
+                        }
+                    }) {
+                        Text("내 위치 자동으로 찾기")
+                    }
                 }
             }
         }
     }
 
-    // ===== 권한 거절 시 다이얼로그 및 설정 바로가기 =====
     if (showPermissionDialog) {
         AlertDialog(
             onDismissRequest = { showPermissionDialog = false },
             title = { Text("권한 필요") },
-            text = { Text("앱 사용을 위해 위치 권한을 허용해야 합니다.\n\n설정화면에서 권한을 허용해주세요.") },
+            text = { Text("앱 사용을 위해 위치 권한을 허용해야 합니다.\\n\\n설정화면에서 권한을 허용해주세요.") },
             confirmButton = {
                 TextButton(onClick = {
-                    // 앱 설정화면으로 이동
-                    val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = android.net.Uri.parse("package:" + context.packageName)
                     }
                     context.startActivity(intent)
                     showPermissionDialog = false
-                }) { Text("설정으로 이동") }
+                }) {
+                    Text("설정으로 이동")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showPermissionDialog = false }) { Text("취소") }
+                TextButton(onClick = { showPermissionDialog = false }) {
+                    Text("취소")
+                }
             }
         )
     }
 }
+
 
 // 위치를 가져와서 위도/경도/지역명 상태 업데이트
 private fun CoroutineScope.fetchLocation(

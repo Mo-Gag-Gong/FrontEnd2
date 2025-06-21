@@ -1,10 +1,8 @@
-// app/src/main/java/kr/ac/uc/test_2025_05_19_k/ui/profile/MyProfileScreen.kt
 package kr.ac.uc.test_2025_05_19_k.ui.profile
 
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,13 +27,11 @@ import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import kr.ac.uc.test_2025_05_19_k.viewmodel.ProfileInputViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.UserProfileViewModel
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import kr.ac.uc.test_2025_05_19_k.data.local.UserPreference
 
+val LightBlue = Color(0xFFADD8E6)
+val LightGrayBackground = Color(0xFFF5F5F5)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -56,15 +53,24 @@ fun MyProfileScreen(
     }
 
     val profile = profileState
+    val context = LocalContext.current
+    val displayedLocation = remember {
+        UserPreference(context).getLocation() ?: "지역 정보 없음"
+    }
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("마이 프로필", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(16.dp)
+    ) {
+        Text("마이 프로필", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Black)
         Spacer(modifier = Modifier.height(24.dp))
 
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation()
+            elevation = CardDefaults.cardElevation(6.dp)
         ) {
             Box {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -78,7 +84,7 @@ fun MyProfileScreen(
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(CircleShape)
-                                .border(2.dp, Color.Black, CircleShape),
+                                .border(2.dp, LightBlue, CircleShape),
                             contentScale = ContentScale.Crop
                         )
                         Spacer(modifier = Modifier.width(16.dp))
@@ -93,16 +99,10 @@ fun MyProfileScreen(
                         } ?: "미입력"
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = profile.name,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text("성별: ${profile.gender ?: "미입력"}")
-                            Text("전화번호: ${profile.phoneNumber ?: "미입력"}")
-                            Text("생년월일: $formattedBirth")
+                            Text(profile.name, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            Text("성별: ${profile.gender ?: "미입력"}", color = Color.Gray)
+                            Text("전화번호: ${profile.phoneNumber ?: "미입력"}", color = Color.Gray)
+                            Text("생년월일: $formattedBirth", color = Color.Gray)
                         }
                     }
                 }
@@ -111,10 +111,9 @@ fun MyProfileScreen(
                     onClick = { navController.navigate("profile_edit") },
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = "정보 수정")
+                    Icon(Icons.Default.Edit, contentDescription = "정보 수정", tint = LightBlue)
                 }
             }
-
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -122,10 +121,9 @@ fun MyProfileScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation()
+            elevation = CardDefaults.cardElevation(6.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                // 관심사 제목 + 수정 버튼
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -134,22 +132,17 @@ fun MyProfileScreen(
                         text = "“${profile.name}”의 관심사",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f) // 텍스트 너비 제한
+                        modifier = Modifier.weight(1f)
                     )
-
                     IconButton(
                         onClick = { navController.navigate("interest_edit") }
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = "관심사 수정")
+                        Icon(Icons.Default.Edit, contentDescription = "관심사 수정", tint = LightBlue)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 관심사 버튼 목록
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -158,68 +151,52 @@ fun MyProfileScreen(
                         Button(
                             onClick = {},
                             shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Cyan)
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = LightBlue,
+                                contentColor = Color.White
+                            )
                         ) {
                             Text(it.interestName)
                         }
                     }
                 }
             }
-
         }
 
-
-        // 기존 관심사 Box 이후에 추가 (통계 Box 이전)
         Spacer(modifier = Modifier.height(16.dp))
-
-        val context = LocalContext.current
-        val displayedLocation = remember {
-            UserPreference(context).getLocation() ?: "지역 정보 없음"
-        }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFF5F5F5), shape = RoundedCornerShape(12.dp))
+                .background(LightGrayBackground, shape = RoundedCornerShape(16.dp))
                 .padding(16.dp)
                 .clickable { navController.navigate("region_setting_cache") }
         ) {
             Column {
-                Text("현재 지역", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = displayedLocation,
-                    fontSize = 14.sp,
-                    color = Color.DarkGray
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "터치하여 지역 정보 수정",
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
+                Text("📍 현재 지역", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(displayedLocation, fontSize = 14.sp, color = Color.DarkGray)
+                Text("터치하여 지역 정보 수정", fontSize = 12.sp, color = Color.Gray)
             }
         }
-
-
-
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Card(
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(6.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("통계", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("📊 통계", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("그룹 참여 횟수: ${profile.groupParticipationCount}회")
-                Text("총 모임 수: ${profile.totalMeetings}회")
-                Text("출석률: ${profile.attendanceRate}%")
+                Text("그룹 참여 횟수: ${profile.groupParticipationCount}회", color = Color.Gray)
+                Text("총 모임 수: ${profile.totalMeetings}회", color = Color.Gray)
+                Text("출석률: ${profile.attendanceRate}%", color = Color.Gray)
             }
         }
     }
 }
+
 @Composable
 fun ProfileEditScreen(
     navController: NavController,
@@ -263,10 +240,11 @@ fun ProfileEditScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color.White)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("마이 프로필 수정", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("마이 프로필 수정", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.Black)
         Spacer(Modifier.height(16.dp))
 
         Image(
@@ -275,7 +253,7 @@ fun ProfileEditScreen(
             modifier = Modifier
                 .size(100.dp)
                 .clip(CircleShape)
-                .border(2.dp, Color.Gray, CircleShape)
+                .border(2.dp, LightBlue, CircleShape)
         )
 
         Spacer(Modifier.height(24.dp))
@@ -289,7 +267,10 @@ fun ProfileEditScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             GenderButton("남", gender == "남") { gender = "남" }
             GenderButton("여", gender == "여") { gender = "여" }
         }
@@ -305,10 +286,13 @@ fun ProfileEditScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        Text("생년월일", fontWeight = FontWeight.SemiBold)
+        Text("생년월일", fontWeight = FontWeight.SemiBold, color = Color.Black)
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             OutlinedTextField(
                 value = birthYearOnly,
                 onValueChange = { birthYearOnly = it },
@@ -331,55 +315,58 @@ fun ProfileEditScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        Button(onClick = {
-            val birthInt = try {
-                (birthYearOnly + birthMonthOnly.padStart(2, '0') + birthDayOnly.padStart(2, '0')).toInt()
-            } catch (e: Exception) {
-                Toast.makeText(context, "생년월일 형식이 잘못되었습니다.", Toast.LENGTH_SHORT).show()
-                return@Button
-            }
-
-            Log.d("SubmitDebug", "버튼 클릭됨")
-            Log.d("SubmitDebug", "name=$name")
-            Log.d("SubmitDebug", "gender=$gender")
-            Log.d("SubmitDebug", "phoneNumber=$phoneNumber")
-            Log.d("SubmitDebug", "birthInt=$birthInt")
-            Log.d("SubmitDebug", "locationName=${viewModel.locationName}") // ✅ 위치 로그 출력
-
-            viewModel.submitBasicProfileOnly(
-                name = name,
-                gender = gender ?: "",
-                phoneNumber = phoneNumber,
-                birthYear = birthInt,
-                locationName = viewModel.locationName, // ✅ 위치 포함
-                onSuccess = {
-                    Toast.makeText(context, "수정 완료!", Toast.LENGTH_SHORT).show()
-                    navController.popBackStack()
-                },
-                onError = { msg ->
-                    Toast.makeText(context, "오류: $msg", Toast.LENGTH_LONG).show()
+        Button(
+            onClick = {
+                val birthInt = try {
+                    (birthYearOnly + birthMonthOnly.padStart(2, '0') + birthDayOnly.padStart(2, '0')).toInt()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "생년월일 형식이 잘못되었습니다.", Toast.LENGTH_SHORT).show()
+                    return@Button
                 }
-            )
-        }) {
-            Text("저장", color = Color.White, fontSize = 18.sp)
+
+                viewModel.submitBasicProfileOnly(
+                    name = name,
+                    gender = gender ?: "",
+                    phoneNumber = phoneNumber,
+                    birthYear = birthInt,
+                    locationName = viewModel.locationName,
+                    onSuccess = {
+                        Toast.makeText(context, "수정 완료!", Toast.LENGTH_SHORT).show()
+                        navController.popBackStack()
+                    },
+                    onError = { msg ->
+                        Toast.makeText(context, "오류: $msg", Toast.LENGTH_LONG).show()
+                    }
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = LightBlue,
+                contentColor = Color.White
+            ),
+            elevation = ButtonDefaults.buttonElevation(6.dp)
+        ) {
+            Text("저장", fontSize = 18.sp)
         }
     }
 }
 
 
-
-
-
 @Composable
 fun GenderButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    Button(
+    OutlinedButton(
         onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) Color.Cyan else Color.LightGray
+        shape = RoundedCornerShape(50),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = if (selected) LightBlue else Color.White,
+            contentColor = if (selected) Color.White else LightBlue
         ),
-        shape = RoundedCornerShape(20.dp)
+        border = if (!selected) BorderStroke(1.dp, LightBlue) else null
     ) {
-        Text(label, color = if (selected) Color.White else Color.Black)
+        Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 

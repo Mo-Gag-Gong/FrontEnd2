@@ -2,13 +2,16 @@ package kr.ac.uc.test_2025_05_19_k.ui.schedule
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,14 +31,15 @@ import kr.ac.uc.test_2025_05_19_k.viewmodel.GoalViewModel
 import java.time.LocalDate
 import java.time.YearMonth
 
+// 색상 정의
+private val SkyBlue = Color(0xFFADD8E6)
+private val LightGrayText = Color(0xFF444444)
+
 enum class ScheduleType {
     NONE, GROUP
 }
 
-fun getScheduleTypeForDate(
-    date: LocalDate,
-    groupDates: Set<LocalDate>
-): ScheduleType {
+fun getScheduleTypeForDate(date: LocalDate, groupDates: Set<LocalDate>): ScheduleType {
     val hasGroup = groupDates.contains(date)
     return if (hasGroup) ScheduleType.GROUP else ScheduleType.NONE
 }
@@ -43,7 +47,7 @@ fun getScheduleTypeForDate(
 fun getColorForScheduleType(type: ScheduleType): Color {
     return when (type) {
         ScheduleType.NONE -> Color.Transparent
-        ScheduleType.GROUP -> Color(0xFFFFCDD2)
+        ScheduleType.GROUP -> SkyBlue.copy(alpha = 0.15f)
     }
 }
 
@@ -69,61 +73,78 @@ fun ScheduleScreen(groupId: Long, navController: NavController) {
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
-            TopAppBar(title = { Text("\uD83D\uDCC5 스케줄") })
-        },
+            TopAppBar(
+                title = {
+                    Text("스케줄", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SkyBlue)
+            )
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "이전 달")
+                IconButton(
+                    onClick = { currentMonth = currentMonth.minusMonths(1) },
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = SkyBlue)
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "이전 달", tint = Color.White)
                 }
+
                 Text(
                     "${currentMonth.year}.${currentMonth.monthValue.toString().padStart(2, '0')}",
+                    fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
+                    color = LightGrayText
                 )
-                IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
-                    Icon(Icons.Default.ArrowForward, contentDescription = "다음 달")
+
+                IconButton(
+                    onClick = { currentMonth = currentMonth.plusMonths(1) },
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = SkyBlue)
+                ) {
+                    Icon(Icons.Default.ArrowForward, contentDescription = "다음 달", tint = Color.White)
                 }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            CalendarGrid(
-                month = currentMonth,
-                groupDates = groupDates
-            ) { clickedDate ->
-                selectedDate = clickedDate
-                selectedGoals = goalMap[clickedDate] ?: emptyList()
-                scope.launch { sheetState.show() }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            val mergedMap = remember(currentMonth, goalMap) {
-                val merged = mutableMapOf<LocalDate, MutableList<GoalResponse>>()
-                goalMap.forEach { (date, list) ->
-                    if (date.year == currentMonth.year && date.month == currentMonth.month) {
-                        merged.getOrPut(date) { mutableListOf() }.addAll(list)
-                    }
+            CalendarGrid(
+                month = currentMonth,
+                groupDates = groupDates,
+                onDateClick = { clickedDate ->
+                    selectedDate = clickedDate
+                    selectedGoals = goalMap[clickedDate] ?: emptyList()
+                    scope.launch { sheetState.show() }
                 }
-                merged.toSortedMap()
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            val mergedMap = remember(currentMonth, goalMap) {
+                goalMap.filterKeys { date ->
+                    date.year == currentMonth.year && date.month == currentMonth.month
+                }.toSortedMap()
             }
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 mergedMap.forEach { (date, goals) ->
                     item {
-                        // ✅ 날짜 전체 출력 대신 '일'만 출력 (예: 22일)
-                        Text("\uD83D\uDCC5 ${date.dayOfMonth}일", fontWeight = FontWeight.Bold)
+                        Text(
+                            "${date.dayOfMonth}일",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = SkyBlue,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
                     }
                     items(goals.size) { index ->
                         val goal = goals[index]
@@ -131,45 +152,49 @@ fun ScheduleScreen(groupId: Long, navController: NavController) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, SkyBlue),
+                            elevation = CardDefaults.cardElevation(2.dp)
                         ) {
                             Row(
                                 modifier = Modifier
-                                    .padding(12.dp)
-                                    .fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(goal.title)
+                                Text(
+                                    goal.title,
+                                    color = LightGrayText,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
                             }
                         }
                     }
                 }
             }
-
         }
 
         if (sheetState.isVisible) {
             ModalBottomSheet(
                 onDismissRequest = { scope.launch { sheetState.hide() } },
-                sheetState = sheetState
+                sheetState = sheetState,
+                containerColor = Color.White,
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("\uD83D\uDCCC ${selectedDate} 목표", style = MaterialTheme.typography.titleMedium)
-
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        "${selectedDate} 목표",
+                        color = SkyBlue,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
                     if (selectedGoals.isEmpty()) {
-                        Text("등록된 목표 없음")
+                        Text("등록된 목표 없음", color = Color.Gray)
                     } else {
                         selectedGoals.forEach { goal ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("• ${goal.title}", modifier = Modifier.weight(1f))
-                            }
+                            Text("• ${goal.title}", color = LightGrayText, modifier = Modifier.padding(vertical = 6.dp))
                         }
                     }
                 }
@@ -189,7 +214,6 @@ fun CalendarGrid(
     val firstDay = month.atDay(1)
     val lastDay = month.lengthOfMonth()
     val firstWeekday = (firstDay.dayOfWeek.value % 7)
-
     val totalCells = ((firstWeekday + lastDay + 6) / 7) * 7
     val dates = (0 until totalCells).map { index ->
         val day = index - firstWeekday + 1
@@ -201,8 +225,11 @@ fun CalendarGrid(
             listOf("일", "월", "화", "수", "목", "금", "토").forEach {
                 Text(
                     it,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(vertical = 6.dp),
                     textAlign = TextAlign.Center,
+                    color = SkyBlue,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -211,11 +238,19 @@ fun CalendarGrid(
         dates.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
                 week.forEach { date ->
-                    val type = if (date != null)
-                        getScheduleTypeForDate(date, groupDates)
-                    else ScheduleType.NONE
+                    val hasSchedule = date != null && groupDates.contains(date)
+                    val isToday = date == today
 
-                    val bgColor = getColorForScheduleType(type)
+                    val backgroundColor = when {
+                        isToday -> SkyBlue.copy(alpha = 0.2f)
+                        hasSchedule -> SkyBlue.copy(alpha = 0.1f)
+                        else -> Color.Transparent
+                    }
+
+                    val textColor = when {
+                        isToday -> SkyBlue
+                        else -> Color.DarkGray
+                    }
 
                     Box(
                         modifier = Modifier
@@ -223,7 +258,7 @@ fun CalendarGrid(
                             .aspectRatio(1f)
                             .padding(4.dp)
                             .clip(CircleShape)
-                            .background(bgColor)
+                            .background(backgroundColor)
                             .clickable(enabled = date != null) {
                                 date?.let { onDateClick(it) }
                             },
@@ -231,8 +266,8 @@ fun CalendarGrid(
                     ) {
                         Text(
                             text = date?.dayOfMonth?.toString() ?: "",
-                            color = if (date == today) Color.Black else Color.DarkGray,
-                            fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal
+                            color = textColor,
+                            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
                         )
                     }
                 }
