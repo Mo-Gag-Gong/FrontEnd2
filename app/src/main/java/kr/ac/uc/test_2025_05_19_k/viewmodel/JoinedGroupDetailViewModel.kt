@@ -7,19 +7,23 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
+import kr.ac.uc.test_2025_05_19_k.model.UserProfileWithStatsDto
 import kr.ac.uc.test_2025_05_19_k.repository.GroupRepository
 import kr.ac.uc.test_2025_05_19_k.repository.TokenManager
+import kr.ac.uc.test_2025_05_19_k.repository.UserRepository
 import javax.inject.Inject
 
 @HiltViewModel
 class JoinedGroupDetailViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
+    private val userRepository: UserRepository,
     private val tokenManager: TokenManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -44,6 +48,10 @@ class JoinedGroupDetailViewModel @Inject constructor(
 
     private val _goals = MutableStateFlow<List<GroupGoalDto>>(emptyList())
     val goals = _goals.asStateFlow()
+
+    private val _selectedMemberProfile = MutableStateFlow<UserProfileWithStatsDto?>(null)
+    val selectedMemberProfile: StateFlow<UserProfileWithStatsDto?> = _selectedMemberProfile.asStateFlow()
+
 
     // --- 초기화 로직 ---
     init {
@@ -116,5 +124,22 @@ class JoinedGroupDetailViewModel @Inject constructor(
                 Log.e("JoinedGroupDetailVM", "그룹 탈퇴 실패", e)
             }
         }
+    }
+
+    fun onMemberSelected(userId: Long) {
+        viewModelScope.launch {
+            _selectedMemberProfile.value = null
+            userRepository.getUserProfile(userId)
+                .onSuccess { profile ->
+                    _selectedMemberProfile.value = profile
+                }
+                .onFailure { e ->
+                    Log.e("JoinedGroupDetailVM", "Failed to get user profile", e)
+                }
+        }
+    }
+
+    fun clearSelectedMember() {
+        _selectedMemberProfile.value = null
     }
 }
