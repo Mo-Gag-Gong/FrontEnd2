@@ -29,9 +29,9 @@ import kr.ac.uc.test_2025_05_19_k.navigation.bottomNavItems
 import kr.ac.uc.test_2025_05_19_k.ui.theme.MogackoTheme
 import kr.ac.uc.test_2025_05_19_k.repository.TokenManager
 import kr.ac.uc.test_2025_05_19_k.util.AppEvents
+import kr.ac.uc.test_2025_05_19_k.util.LocationUtils.getCityNameFromLocation
+import kr.ac.uc.test_2025_05_19_k.util.LocationUtils.getCurrentLocation
 import kr.ac.uc.test_2025_05_19_k.util.RefreshEvent
-import kr.ac.uc.test_2025_05_19_k.util.getCityNameFromLocation
-import kr.ac.uc.test_2025_05_19_k.util.getCurrentLocation
 import javax.inject.Inject
 
 @AndroidEntryPoint

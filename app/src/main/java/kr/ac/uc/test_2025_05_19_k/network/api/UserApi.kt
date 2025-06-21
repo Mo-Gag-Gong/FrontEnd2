@@ -11,6 +11,7 @@ import retrofit2.http.Path
 import kr.ac.uc.test_2025_05_19_k.model.UserProfileWithStatsDto // 새로 만든 DTO import
 // ... 다른 imports
 import retrofit2.Response
+import retrofit2.http.PUT
 
 interface UserApi {
 
@@ -29,4 +30,13 @@ interface UserApi {
 
     @GET("api/users/{userId}/profile")
     suspend fun getUserProfile(@Path("userId") userId: Long): Response<UserProfileWithStatsDto>
+
+    @PUT("/api/users/interests")
+    suspend fun updateUserInterests(
+        @Body interestIds: List<Long>
+    ): Response<Unit>
+
+
+
+
 }

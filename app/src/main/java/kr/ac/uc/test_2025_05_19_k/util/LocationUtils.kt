@@ -4,12 +4,14 @@ package kr.ac.uc.test_2025_05_19_k.util
 
 import android.Manifest
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
 import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -19,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.util.Locale
+
+object LocationUtils {
 
 // 관심사 ID 리스트를 SharedPreferences에 저장
 fun saveInterestIds(context: Context, ids: List<Long>) {
@@ -119,29 +123,52 @@ suspend fun getCurrentLocation(context: Context): Location? = withContext(Dispat
     }
 }
 
-suspend fun getCityNameFromLocation(context: Context, latitude: Double, longitude: Double): String? =
-    withContext(Dispatchers.IO) {
-        try {
-            val geocoder = Geocoder(context, Locale.KOREA)
-            @Suppress("DEPRECATION")
-            val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+    suspend fun getCityNameFromLocation(context: Context, latitude: Double, longitude: Double): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val geocoder = Geocoder(context, Locale.KOREA)
+                @Suppress("DEPRECATION")
+                val addresses = geocoder.getFromLocation(latitude, longitude, 1)
 
-            if (addresses?.isNotEmpty() == true) {
-                // 1. Geocoder로부터 전체 행정구역명(adminArea)을 가져옵니다. (예: "울산광역시")
-                val fullAdminArea = addresses[0].adminArea
-
-                // ▼▼▼ [수정/추가] 전체 이름에서 접미사 제거 로직 ▼▼▼
-                fullAdminArea?.let {
-                    it.removeSuffix("광역시")
-                        .removeSuffix("특별시")
-                        .removeSuffix("특별자치도") // '제주특별자치도'와 같은 경우를 위해 '도'보다 먼저 처리
-                        .removeSuffix("도")
+                if (addresses?.isNotEmpty() == true) {
+                    val fullAdminArea = addresses[0].adminArea
+                    return@withContext fullAdminArea?.removeSuffix("광역시")
+                        ?.removeSuffix("특별시")
+                        ?.removeSuffix("특별자치도")
+                        ?.removeSuffix("도")
+                } else {
+                    null
                 }
-            } else {
+            } catch (e: Exception) {
+                Log.e("LocationUtils", "Failed to convert location to city name.", e)
                 null
             }
-        } catch (e: Exception) {
-            Log.e("LocationUtils", "Failed to convert location to city name.", e)
-            null
+        }
+
+    // 위쪽 위치에 추가 (예: getCityNameFromLocation 바로 아래)
+
+    suspend fun getRegionFromLocation(context: Context, latitude: Double, longitude: Double): String? {
+        return getCityNameFromLocation(context, latitude, longitude)
+    }
+
+    suspend fun requestAndSaveLocation(context: Context, fusedLocationClient: FusedLocationProviderClient) {
+        withContext(Dispatchers.IO) {
+            // 위치 권한, 요청, Geocoder, 저장 로직
         }
     }
+
+
+
+    private const val PREFS_NAME = "location_prefs"
+    private const val KEY_CITY = "city_name"
+
+    fun saveCityName(context: Context, cityName: String) {
+        val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_CITY, cityName).apply()
+    }
+
+    fun getCityName(context: Context): String? {
+        val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_CITY, null)
+    }
+}

@@ -1,5 +1,6 @@
 package kr.ac.uc.test_2025_05_19_k.ui.profile
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,16 +24,20 @@ import kr.ac.uc.test_2025_05_19_k.viewmodel.ProfileInputViewModel
 @Composable
 fun InterestSelectScreenHost(
     navController: NavController,
-    viewModel: ProfileInputViewModel = hiltViewModel<ProfileInputViewModel>()
+    viewModel: ProfileInputViewModel = hiltViewModel(),
+    isEditMode: Boolean = false,
+    onNextCustom: (() -> Unit)? = null
 ) {
     val interests = viewModel.interests
     val interestLoading = viewModel.interestLoading
     val interestError = viewModel.interestError
     val selectedInterestIds = viewModel.selectedInterestIds
-    val userName = viewModel.name // 필요시 이름 전달
+    val userName = viewModel.name
 
-    // 관심사 목록 불러오기 (최초 1회)
-    LaunchedEffect(Unit) { viewModel.loadInterests() }
+    LaunchedEffect(Unit) {
+        viewModel.loadInterests()
+        viewModel.loadUserProfile()
+    }
 
     InterestSelectScreen(
         interests = interests,
@@ -41,14 +46,28 @@ fun InterestSelectScreenHost(
         navController = navController,
         onToggle = { viewModel.toggleInterest(it) },
         onNext = {
-            // 관심사 선택 완료 후 다음 단계로 이동
-            val idsParam = selectedInterestIds.joinToString(",")
-            navController.navigate("gps_setting?interestIds=$idsParam")
+            if (isEditMode) {
+                onNextCustom?.invoke() ?: run {
+                    viewModel.updateOnlyInterests(
+                        selectedInterestIds = selectedInterestIds,
+                        onSuccess = {
+                            navController.popBackStack("profile_edit", inclusive = false)
+                        },
+                        onError = { msg -> Log.e("InterestEdit", "저장 실패: $msg") }
+                    )
+                }
+            } else {
+                val idsParam = selectedInterestIds.joinToString(",")
+                navController.navigate("gps_setting?interestIds=$idsParam")
+            }
         },
         isLoading = interestLoading,
-        errorMsg = interestError
+        errorMsg = interestError,
+        isEditMode = isEditMode // ✅ 모드 구분 추가
     )
 }
+
+
 
 @Composable
 fun InterestSelectScreen(
@@ -59,7 +78,8 @@ fun InterestSelectScreen(
     onToggle: (Long) -> Unit,
     onNext: () -> Unit,
     isLoading: Boolean = false,
-    errorMsg: String? = null
+    errorMsg: String? = null,
+    isEditMode: Boolean = false // ✅ 추가
 ) {
     var localErrorMsg by remember { mutableStateOf<String?>(null) }
 
@@ -74,9 +94,16 @@ fun InterestSelectScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { navController.popBackStack() }) {
+            IconButton(onClick = {
+                if (isEditMode) {
+                    navController.popBackStack("profile_edit", inclusive = false)
+                } else {
+                    navController.popBackStack()
+                }
+            }) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back")
             }
+
             Button(
                 onClick = {
                     if (selectedIds.isEmpty()) {
@@ -93,14 +120,18 @@ fun InterestSelectScreen(
                 ),
                 modifier = Modifier.height(44.dp)
             ) {
-                Text("다음", color = Color.White, fontSize = 17.sp)
+                Text(
+                    text = if (isEditMode) "완료" else "다음",
+                    color = Color.White,
+                    fontSize = 17.sp
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(36.dp))
-        Text("반갑습니다 ${userName}님!", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.fillMaxWidth(), color = Color.Black)
+        Text("반갑습니다 ${userName}님!", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(modifier = Modifier.height(4.dp))
-        Text("이제부터 ${userName}님의 관심사를 설정할게요!", fontSize = 14.sp, modifier = Modifier.fillMaxWidth(), color = Color.Black)
+        Text("이제부터 ${userName}님의 관심사를 설정할게요!", fontSize = 14.sp)
         Spacer(modifier = Modifier.height(28.dp))
 
         if (isLoading) {
@@ -110,11 +141,7 @@ fun InterestSelectScreen(
         } else if (!errorMsg.isNullOrBlank()) {
             Text(errorMsg, color = MaterialTheme.colorScheme.error)
         } else {
-            InterestCardGrid(
-                interests = interests,
-                selectedIds = selectedIds,
-                onToggle = onToggle
-            )
+            InterestCardGrid(interests, selectedIds, onToggle)
         }
 
         localErrorMsg?.let {
@@ -123,6 +150,7 @@ fun InterestSelectScreen(
         }
     }
 }
+
 
 @Composable
 fun InterestCardGrid(

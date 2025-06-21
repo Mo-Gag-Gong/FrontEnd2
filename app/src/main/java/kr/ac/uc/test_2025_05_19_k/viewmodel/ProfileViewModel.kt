@@ -8,30 +8,39 @@ import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.repository.ProfileRepository
 import javax.inject.Inject
 import androidx.compose.runtime.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kr.ac.uc.test_2025_05_19_k.model.ProfileUpdateRequest
-import kr.ac.uc.test_2025_05_19_k.network.ApiService
+import kr.ac.uc.test_2025_05_19_k.model.UserProfileResponse
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val repository: ProfileRepository
+    private val repository: ProfileRepository,
+
 ) : ViewModel() {
+
+    // ✅ 사용자 프로필 상태 관리용
+    private val _userProfile = MutableStateFlow<UserProfileResponse?>(null)
+    val userProfile: StateFlow<UserProfileResponse?> = _userProfile
 
     // 상태 변수들 (UI 바인딩용)
     var name by mutableStateOf("")
     var gender by mutableStateOf<String?>(null)
     var phoneNumber by mutableStateOf("")
-    var birthYear by mutableStateOf("")
+    var birth by mutableStateOf("")
     var locationName by mutableStateOf("")
     var selectedInterestIds by mutableStateOf<List<Long>>(emptyList())
 
     var isLoading by mutableStateOf(false)
     var errorMessage by mutableStateOf<String?>(null)
 
+
+
     // 상태 업데이트 함수
     fun updateName(newName: String) { name = newName }
     fun updateGender(newGender: String?) { gender = newGender }
     fun updatePhoneNumber(newNumber: String) { phoneNumber = newNumber }
-    fun updateBirthYear(newBirth: String) { birthYear = newBirth }
+    fun updateBirthYear(newBirth: String) { birth = newBirth }
     fun updateLocationName(newLocation: String) { locationName = newLocation }
     fun updateSelectedInterests(newIds: List<Long>) { selectedInterestIds = newIds }
 
@@ -40,13 +49,15 @@ class ProfileViewModel @Inject constructor(
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
+        Log.d("submitProfile", "입력값 확인 → name=$name, gender=$gender, phone=$phoneNumber, birth=$birth, location=$locationName, interests=$selectedInterestIds")
+
         Log.d("RegionSettingScreen", "submitProfile start, repository=$repository")
         isLoading = true
         errorMessage = null
 
         // 유효성 체크 (필수)
-        val birthYearInt = birthYear.toIntOrNull()
-        if (birthYearInt == null) {
+        val birth = birth.toIntOrNull()
+        if (birth == null) {
             onError("생년월일(출생연도)을 올바르게 입력하세요.")
             isLoading = false
             return
@@ -82,7 +93,7 @@ class ProfileViewModel @Inject constructor(
             name = name,
             gender = gender!!,
             phoneNumber = phoneNumber,
-            birthYear = birthYearInt,
+            birthYear = birth,
             locationName = locationName,
             interestIds = selectedInterestIds
         )
@@ -112,6 +123,11 @@ class ProfileViewModel @Inject constructor(
             }
         }
     }
+
+
+
+
+
 
 
 }

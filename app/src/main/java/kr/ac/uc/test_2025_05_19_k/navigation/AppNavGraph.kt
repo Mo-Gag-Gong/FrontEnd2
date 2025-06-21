@@ -43,6 +43,15 @@ import kr.ac.uc.test_2025_05_19_k.viewmodel.OnboardingViewModel
 import kr.ac.uc.test_2025_05_19_k.viewmodel.ProfileInputViewModel
 import kr.ac.uc.test_2025_05_19_k.ui.group.detail.GroupApplyScreen
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import kr.ac.uc.test_2025_05_19_k.network.SessionManager
+import kr.ac.uc.test_2025_05_19_k.ui.profile.ProfileEditScreen
+import kr.ac.uc.test_2025_05_19_k.viewmodel.submitProfile
+import kr.ac.uc.test_2025_05_19_k.viewmodel.submitProfileDirect
+import dagger.hilt.android.EntryPointAccessors
+import kr.ac.uc.test_2025_05_19_k.di.SessionManagerEntryPoint
+
+
 @Composable
 fun LogCurrentScreen(navController: NavController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -150,35 +159,71 @@ fun AppNavGraph(
         }
 
         // 5. 지역 선택/확인
-        composable("region_setting") { backStackEntry ->
-            val context = LocalContext.current
+        // 1. 회원가입 중 region_setting
+        composable(
+            route = "region_setting_signup?interestIds={interestIds}",
+            arguments = listOf(
+                navArgument("interestIds") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val interestIdsParam = backStackEntry.arguments?.getString("interestIds") ?: ""
+            val interestIds = interestIdsParam.split(",").mapNotNull { it.toLongOrNull() }
             val viewModel: ProfileInputViewModel = hiltViewModel()
 
             RegionSettingScreen(
                 navController = navController,
-                onBack = { navController.popBackStack() },
-                onDone = { selectedRegion: String ->
-                    Log.d("RegionSettingScreen", "onDone 호출: $selectedRegion")
+                mode = "signup",
+                interestIds = interestIds,
+                onDone = { selectedRegion ->
                     viewModel.updateLocation(selectedRegion)
-                    Log.d(
-                        "RegionSettingScreen",
-                        "submitProfile 직전 값: name=${viewModel.name}, gender=${viewModel.gender}, phone=${viewModel.phoneNumber}, birth=${viewModel.birthYear}, interestIds=${viewModel.selectedInterestIds}, locationName=${viewModel.locationName}"
-                    )
-                    viewModel.submitProfile(
+                    viewModel.submitProfileDirect(
+                        name = viewModel.name,
+                        gender = viewModel.gender,
+                        phoneNumber = viewModel.phoneNumber,
+                        birthYear = viewModel.getBirthAsInt() ?: 0,
+                        locationName = selectedRegion,
+                        interestIds = interestIds,
                         onSuccess = {
-                            Log.d("RegionSettingScreen", "submitProfile 성공!")
                             navController.navigate(BottomNavItem.Home.route) {
-                                popUpTo("region_setting") { inclusive = true }
+                                popUpTo("region_setting_signup") { inclusive = true }
                             }
                         },
-                        onError = { msg: String ->
-                            Log.e("RegionSettingScreen", "submitProfile 실패: $msg")
-                            Toast.makeText(context, "프로필 저장 실패: $msg", Toast.LENGTH_SHORT).show()
+                        onError = { msg ->
+                            Log.e("RegionSettingScreen", "signup 오류: $msg")
                         }
                     )
                 }
             )
         }
+
+// 2. 캐시 위치 누락 대응 region_setting
+        // 2. 캐시 위치 누락 대응 region_setting
+        composable("region_setting_cache") {
+            val viewModel: ProfileInputViewModel = hiltViewModel() // ✅ ViewModel 변경
+            val context = LocalContext.current
+
+            RegionSettingScreen(
+                navController = navController,
+                mode = "cache",
+                onDone = { selectedRegion ->
+                    viewModel.updateLocation(selectedRegion) // ✅ 캐시에 저장만
+
+                    // ✅ 서버 호출 없이 바로 홈으로 이동
+                    navController.navigate(BottomNavItem.Home.route) {
+                        popUpTo("region_setting_cache") { inclusive = true }
+                        Log.d("RegionSettingScreen", "캐시에 저장된 지역: $selectedRegion")
+
+                    }
+                }
+            )
+
+
+        }
+
+
 
         // --- 하단 네비게이션 바가 있는 주요 화면 ---
         composable(BottomNavItem.Home.route) {
@@ -202,9 +247,57 @@ fun AppNavGraph(
                 }
             )
         }
-        composable(BottomNavItem.Schedule.route) { ScheduleScreen(navController = navController) }
+
+
+        composable("schedule") {
+            ScheduleScreen(groupId = 0L, navController = navController)
+        }
+        // 일정
+        composable(
+            route = "schedule/{groupId}",
+            arguments = listOf(navArgument("groupId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getLong("groupId") ?: 0L
+            ScheduleScreen(groupId = groupId, navController = navController)
+        }
+
+
         composable(BottomNavItem.GroupManagement.route) { GroupManagementScreen(navController = navController) }
         composable(BottomNavItem.MyProfile.route) { MyProfileScreen(navController = navController) }
+
+        // 관심사 수정 화면
+        composable("interest_edit") {
+            val viewModel: ProfileInputViewModel = hiltViewModel() // ✅ ViewModel 명시
+
+            InterestSelectScreenHost(
+                navController = navController,
+                isEditMode = true,
+                onNextCustom = {
+                    viewModel.submitInterests(
+                        onSuccess = { navController.popBackStack() },
+                        onError = { msg -> Log.e("InterestEditScreen", "저장 실패: $msg") }
+                    )
+                }
+            )
+        }
+
+        composable("profile_edit") {
+            ProfileEditScreen(
+                navController = navController
+                // 필요한 ViewModel도 주입
+            )
+        }
+
+        composable("region_setting_signup?interestIds={interestIds}") {
+            RegionSettingScreenHost(navController, isSignup = true)
+        }
+
+        composable("region_setting_cache") {
+            RegionSettingScreenHost(navController, isSignup = false)
+        }
+
+
+
 
 
         // --- 그룹 상세/생성/관리 등 추가 화면 ---
@@ -390,29 +483,87 @@ fun AppNavGraph(
 
 }
 
-// Splash-like 자동 분기용 EntryScreen
+
+@Composable
+fun RegionSettingScreenHost(
+    navController: NavHostController,
+    isSignup: Boolean
+) {
+    val mode = if (isSignup) "signup" else "cache"
+
+    RegionSettingScreen(
+        navController = navController,
+        mode = mode,
+        interestIds = emptyList(), // 필요 시 수정
+        onBack = { navController.popBackStack() },
+        onDone = { location ->
+            if (isSignup) {
+                // 회원가입 다음 화면으로 이동
+                navController.navigate("next_signup_step")
+            } else {
+                // 캐시 저장 완료 후 현재 화면 종료
+                navController.popBackStack()
+            }
+        }
+    )
+}
 @Composable
 fun EntryScreen(
     navController: NavController,
-    viewModel: OnboardingViewModel = hiltViewModel()
+    onboardingViewModel: OnboardingViewModel = hiltViewModel(),
+    profileViewModel: ProfileInputViewModel = hiltViewModel()
 ) {
     val checked = remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val sessionManager = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            SessionManagerEntryPoint::class.java
+        ).sessionManager()
+    }
+
+    // ✅ 1️⃣ 캐시 위치를 우선 로드
     LaunchedEffect(Unit) {
-        viewModel.checkOnboardingStatus { completed ->
-            if (completed) {
-                navController.navigate(BottomNavItem.Home.route) {
+        profileViewModel.loadCachedLocation()
+    }
+
+    // ✅ 2️⃣ 로그아웃 시 자동 전환
+    LaunchedEffect(Unit) {
+        sessionManager.logoutFlow.collect {
+            navController.navigate("login") {
+                popUpTo("entry") { inclusive = true }
+            }
+        }
+    }
+
+    // ✅ 3️⃣ 온보딩/위치 확인 후 진입 경로 결정
+    LaunchedEffect(Unit) {
+        onboardingViewModel.checkOnboardingStatus { completed ->
+            if (!completed) {
+                navController.navigate("login") {
+                    popUpTo("entry") { inclusive = true }
+                }
+            } else if (profileViewModel.isLocationMissing()) {
+                navController.navigate("region_setting_cache") {
                     popUpTo("entry") { inclusive = true }
                 }
             } else {
-                navController.navigate("login") {
+                navController.navigate(BottomNavItem.Home.route) {
                     popUpTo("entry") { inclusive = true }
                 }
             }
             checked.value = true
         }
     }
+
     if (!checked.value) {
         CircularProgressIndicator()
     }
 }
+
+
+
+
+
+
