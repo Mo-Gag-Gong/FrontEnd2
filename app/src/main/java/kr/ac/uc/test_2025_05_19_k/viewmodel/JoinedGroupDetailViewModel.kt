@@ -52,6 +52,9 @@ class JoinedGroupDetailViewModel @Inject constructor(
     private val _selectedMemberProfile = MutableStateFlow<UserProfileWithStatsDto?>(null)
     val selectedMemberProfile: StateFlow<UserProfileWithStatsDto?> = _selectedMemberProfile.asStateFlow()
 
+    private val _selectedGoalDetail = MutableStateFlow<GroupGoalDto?>(null)
+    val selectedGoalDetail: StateFlow<GroupGoalDto?> = _selectedGoalDetail.asStateFlow()
+
 
     // --- 초기화 로직 ---
     init {
@@ -141,5 +144,26 @@ class JoinedGroupDetailViewModel @Inject constructor(
 
     fun clearSelectedMember() {
         _selectedMemberProfile.value = null
+    }
+
+    fun onGoalSelected(goalId: Long) {
+        viewModelScope.launch {
+            try {
+                // 기존 getGroupGoals의 반환 타입이 List<GroupGoalDto>이므로,
+                // 여기서 상세 정보를 다시 찾습니다.
+                // 더 나은 방법은 getGoalDetails API를 호출하는 것이지만, 현재 구조를 유지합니다.
+                val goalDetail = _goals.value.find { it.goalId == goalId }
+                _selectedGoalDetail.value = goalDetail
+            } catch (e: Exception) {
+                Log.e("JoinedGroupDetailVM", "Failed to get goal details", e)
+            }
+        }
+    }
+
+    /**
+     * 목표 상세 정보 시트를 닫습니다.
+     */
+    fun clearSelectedGoal() {
+        _selectedGoalDetail.value = null
     }
 }

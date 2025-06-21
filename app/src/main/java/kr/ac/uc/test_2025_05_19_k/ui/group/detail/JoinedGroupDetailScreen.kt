@@ -35,8 +35,13 @@ import kr.ac.uc.test_2025_05_19_k.model.GroupGoalDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupMemberDto
 import kr.ac.uc.test_2025_05_19_k.model.GroupNoticeDto
 import kr.ac.uc.test_2025_05_19_k.ui.group.ChatTabScreen
+import kr.ac.uc.test_2025_05_19_k.ui.group.GoalStatusChip
 import kr.ac.uc.test_2025_05_19_k.ui.group.MemberDetailSheetContent
+import kr.ac.uc.test_2025_05_19_k.util.toDate
 import kr.ac.uc.test_2025_05_19_k.viewmodel.JoinedGroupDetailViewModel
+import java.time.LocalDate
+import kr.ac.uc.test_2025_05_19_k.ui.group.GroupGoalCard
+import kr.ac.uc.test_2025_05_19_k.ui.group.GoalDetailSheetContent
 
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -57,9 +62,28 @@ fun JoinedGroupDetailScreen(
     // ▼▼▼ [추가] 탈퇴 확인 다이얼로그의 표시 여부를 관리하는 상태 ▼▼▼
     var showLeaveConfirmDialog by remember { mutableStateOf(false) }
 
+    val goalSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val selectedGoalDetail by viewModel.selectedGoalDetail.collectAsState()
+
+
     val tabs = listOf("공지사항", "멤버", "그룹 목표", "채팅", "모임")
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val coroutineScope = rememberCoroutineScope()
+
+    if (selectedGoalDetail != null) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.clearSelectedGoal() },
+            sheetState = goalSheetState
+        ) {
+            GoalDetailSheetContent(
+                goal = selectedGoalDetail!!,
+                onEditClick = {},
+                onDeleteClick = {},
+                onToggleDetail = {},
+                isReadOnly = true // 참여자는 읽기 전용
+            )
+        }
+    }
 
     // ▼▼▼ [추가] 탈퇴 확인 다이얼로그 UI ▼▼▼
     if (showLeaveConfirmDialog) {
@@ -168,9 +192,10 @@ fun JoinedGroupDetailScreen(
                         }
                     )
                     2 -> GoalsTabContent(
-                        navController = navController,
                         goals = goals,
-                        groupId = viewModel.groupId
+                        onGoalClick = { goalId ->
+                            viewModel.onGoalSelected(goalId)
+                        }
                     )
                     3 -> ChatTabScreen(navController = navController, groupId = viewModel.groupId)
                     4 -> PlaceholderContent(text = "모임 기능은 준비 중입니다.")
@@ -228,9 +253,8 @@ fun ParticipantNoticeItem(notice: GroupNoticeDto) {
 
 @Composable
 fun GoalsTabContent(
-    navController: NavController,
     goals: List<GroupGoalDto>,
-    groupId: Long
+    onGoalClick: (Long) -> Unit
 ) {
     if (goals.isEmpty()) {
         PlaceholderContent(text = "등록된 그룹 목표가 없습니다.")
@@ -240,44 +264,68 @@ fun GoalsTabContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(goals) { goal ->
-                ParticipantGoalItem(goal = goal) {
-                    navController.navigate("group_goal_detail/${groupId}/${goal.goalId}?isAdmin=false")
+            items(items = goals, key = { it.goalId }) { goal ->
+                // 관리자 화면과 동일한 GroupGoalCard 재사용
+                GroupGoalCard(goal = goal) {
+                    onGoalClick(goal.goalId)
                 }
             }
         }
     }
 }
 
-// [신규] 참여자용 그룹 목표 아이템 카드
 @Composable
 fun ParticipantGoalItem(goal: GroupGoalDto, onClick: () -> Unit) {
+    // 날짜를 기준으로 상태를 동적으로 계산
+    val today = LocalDate.now()
+    val startDate = toDate(goal.startDate)
+    val endDate = toDate(goal.endDate)
+    val status = when {
+        startDate == null || endDate == null -> "날짜오류"
+        today.isBefore(startDate) -> "시작 전"
+        today.isAfter(endDate) -> "완료"
+        else -> "진행중"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick) // 카드 클릭 기능
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant // 연한 회색 배경
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(goal.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "${goal.startDate} ~ ${goal.endDate}",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            // 진행률 표시
-            LinearProgressIndicator(
-                progress = { goal.completedCount.toFloat() / goal.totalCount.toFloat() },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = "달성률: ${goal.completedCount} / ${goal.totalCount}",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .align(Alignment.End)
-                    .padding(top = 4.dp)
-            )
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 상단 행: 제목과 상태 칩
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = goal.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                GoalStatusChip(status = status)
+            }
+            // 하단: 날짜 정보
+            Column {
+                Text(
+                    text = "시작 날짜: ${goal.startDate}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+                Text(
+                    text = "종료 날짜: ${goal.endDate}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
         }
     }
 }

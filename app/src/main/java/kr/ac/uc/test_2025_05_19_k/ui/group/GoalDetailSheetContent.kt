@@ -21,7 +21,8 @@ fun GoalDetailSheetContent(
     goal: GroupGoalDto,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    onToggleDetail: (Long) -> Unit
+    onToggleDetail: (Long) -> Unit,
+    isReadOnly: Boolean = false
 ) {
     val scrollState = rememberScrollState()
 
@@ -74,6 +75,7 @@ fun GoalDetailSheetContent(
         goal.details.forEach { detail ->
             DetailItem(
                 detail = detail,
+                enabled = !isReadOnly,
                 onToggle = {
                     detail.detailId?.let { id -> onToggleDetail(id) }
                 }
@@ -82,22 +84,20 @@ fun GoalDetailSheetContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 하단 버튼 및 상태
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = onEditClick,
-                modifier = Modifier.weight(1f)
-            ) { Text("수정") }
-            Button(
-                onClick = onDeleteClick,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) { Text("삭제") }
-            GoalStatusChip(status = status)
+        if (!isReadOnly) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(onClick = onEditClick, modifier = Modifier.weight(1f)) { Text("수정") }
+                Button(
+                    onClick = onDeleteClick,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("삭제") }
+                GoalStatusChip(status = status)
+            }
         }
     }
 }
@@ -105,6 +105,7 @@ fun GoalDetailSheetContent(
 @Composable
 private fun DetailItem(
     detail: GoalDetailDto,
+    enabled: Boolean, // enabled 파라미터 추가
     onToggle: () -> Unit
 ) {
     Row(
@@ -122,6 +123,7 @@ private fun DetailItem(
         Switch(
             checked = detail.isCompleted,
             onCheckedChange = { onToggle() },
+            enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = Color(0xFF00B2FF)
