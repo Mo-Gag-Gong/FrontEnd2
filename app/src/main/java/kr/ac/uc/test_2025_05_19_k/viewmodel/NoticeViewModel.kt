@@ -14,6 +14,8 @@ import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.model.request.GroupNoticeCreateRequest
 import kr.ac.uc.test_2025_05_19_k.repository.GroupRepository
 import javax.inject.Inject
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 sealed class NoticeFormEvent {
     data class ShowToast(val message: String) : NoticeFormEvent()
@@ -42,9 +44,22 @@ class NoticeViewModel @Inject constructor(
 
     init {
         if (isEditMode) {
-            // ▼▼▼ [수정] SavedStateHandle에서 사용하는 키 값을 "title", "content"로 변경 ▼▼▼
-            title = savedStateHandle.get<String>("title") ?: ""
-            content = savedStateHandle.get<String>("content") ?: ""
+            val encodedTitle = savedStateHandle.get<String>("title") ?: ""
+            val encodedContent = savedStateHandle.get<String>("content") ?: ""
+
+            title = try {
+                URLDecoder.decode(encodedTitle, StandardCharsets.UTF_8.name())
+            } catch (e: Exception) {
+                Log.e("NoticeViewModel", "제목 디코딩 실패", e)
+                encodedTitle // 디코딩 실패 시 원본 표시
+            }
+
+            content = try {
+                URLDecoder.decode(encodedContent, StandardCharsets.UTF_8.name())
+            } catch (e: Exception) {
+                Log.e("NoticeViewModel", "내용 디코딩 실패", e)
+                encodedContent // 디코딩 실패 시 원본 표시
+            }
         }
     }
 
