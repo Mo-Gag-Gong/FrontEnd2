@@ -89,13 +89,13 @@ fun MyProfileScreen(
                         )
                         Spacer(modifier = Modifier.width(16.dp))
 
-                        val formattedBirth = profile.birthYear?.toString()?.let {
-                            if (it.length == 8) {
-                                val year = it.substring(0, 4)
-                                val month = it.substring(4, 6)
-                                val day = it.substring(6, 8)
-                                "${year}년 ${month}월 ${day}일"
-                            } else "미입력"
+                        val formattedBirth = profile.birthDate?.let { dateString ->
+                            val parts = dateString.split("-")
+                            if (parts.size == 3) {
+                                "${parts[0]}년 ${parts[1]}월 ${parts[2]}일"
+                            } else {
+                                dateString // 포맷이 예상과 다를 경우 원본 표시
+                            }
                         } ?: "미입력"
 
                         Column(modifier = Modifier.weight(1f)) {

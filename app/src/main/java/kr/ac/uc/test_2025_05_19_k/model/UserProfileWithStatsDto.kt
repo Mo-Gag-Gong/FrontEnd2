@@ -18,8 +18,8 @@ data class UserProfileWithStatsDto(
     @SerializedName("phoneNumber")
     val phoneNumber: String?,
 
-    @SerializedName("birthYear")
-    val birthYear: Int?,
+    @SerializedName("birthDate")
+    val birthDate: String?,
 
     @SerializedName("profileImage")
     val profileImage: String?,
