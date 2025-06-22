@@ -102,9 +102,10 @@ fun AppNavGraph(
             SignInProfileSettingScreen(
                 navController = navController,
                 onNext = { name, gender, phone, birth ->
-                    if (name.isNotBlank() && gender.isNotBlank() && phone.isNotBlank() && birth.isNotBlank()) {
+                    if (name.isNotBlank() && gender.isNotBlank() && phone.isNotBlank() && birth.toString().isNotBlank()) {
                         navController.navigate("interest_select/$name/$gender/$phone/$birth")
-                    } else {
+                    }
+                    else {
                         Log.w("NAV", "onNext 파라미터 비어있음: $name, $gender, $phone, $birth")
                     }
                 }
@@ -138,17 +139,21 @@ fun AppNavGraph(
             )
         }
 
-        // 4. 위치 권한 요청
+        // 4. 위치 권한 요청 화면 (권한 허용 시 region_setting으로 이동)
         composable(
             route = "gps_setting?interestIds={interestIds}",
             arguments = listOf(
-                navArgument("interestIds") { type = NavType.StringType; defaultValue = "" }
+                navArgument("interestIds") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
             )
         ) { backStackEntry ->
             SignInGPSSettingScreen(
                 backStackEntry = backStackEntry,
                 onBack = { navController.popBackStack() },
                 onLocationGranted = { interestIds ->
+                    // 권한 허용 후 region_setting 경로로 이동
                     navController.navigate("region_setting?interestIds=${interestIds.joinToString(",")}") {
                         popUpTo("gps_setting") { inclusive = true }
                     }
@@ -156,10 +161,9 @@ fun AppNavGraph(
             )
         }
 
-        // 5. 지역 선택/확인
-        // 1. 회원가입 중 region_setting
+// 5. 회원가입 중 위치 설정 (모드: signup)
         composable(
-            route = "region_setting_signup?interestIds={interestIds}",
+            route = "region_setting?interestIds={interestIds}",
             arguments = listOf(
                 navArgument("interestIds") {
                     type = NavType.StringType
@@ -173,7 +177,7 @@ fun AppNavGraph(
 
             RegionSettingScreen(
                 navController = navController,
-                mode = "signup",
+                mode = "signup", // 회원가입 중 위치 설정 모드
                 interestIds = interestIds,
                 onDone = { selectedRegion ->
                     viewModel.updateLocation(selectedRegion)
@@ -186,7 +190,7 @@ fun AppNavGraph(
                         interestIds = interestIds,
                         onSuccess = {
                             navController.navigate(BottomNavItem.Home.route) {
-                                popUpTo("region_setting_signup") { inclusive = true }
+                                popUpTo("region_setting") { inclusive = true }
                             }
                         },
                         onError = { msg ->
@@ -197,29 +201,48 @@ fun AppNavGraph(
             )
         }
 
-// 2. 캐시 위치 누락 대응 region_setting
-        // 2. 캐시 위치 누락 대응 region_setting
+// 6. 캐시 위치 누락 대응 (mode = cache)
         composable("region_setting_cache") {
-            val viewModel: ProfileInputViewModel = hiltViewModel() // ✅ ViewModel 변경
-            val context = LocalContext.current
+            val viewModel: ProfileInputViewModel = hiltViewModel()
 
             RegionSettingScreen(
                 navController = navController,
                 mode = "cache",
                 onDone = { selectedRegion ->
-                    viewModel.updateLocation(selectedRegion) // ✅ 캐시에 저장만
-
-                    // ✅ 서버 호출 없이 바로 홈으로 이동
+                    viewModel.updateLocation(selectedRegion) // ✅ 캐시에만 저장
                     navController.navigate(BottomNavItem.Home.route) {
                         popUpTo("region_setting_cache") { inclusive = true }
-                        Log.d("RegionSettingScreen", "캐시에 저장된 지역: $selectedRegion")
-
                     }
                 }
             )
-
-
         }
+
+// 7. 기존 프로필 수정 중 위치 설정 (mode = edit)
+        composable("region_setting_edit") {
+            val viewModel: ProfileInputViewModel = hiltViewModel()
+
+            RegionSettingScreen(
+                navController = navController,
+                mode = "edit",
+                onDone = { selectedRegion ->
+                    viewModel.updateLocationOnly(
+                        newLocation = selectedRegion,
+                        onSuccess = {
+                            navController.navigate(BottomNavItem.MyProfile.route) {
+                                popUpTo("region_setting_edit") { inclusive = true }
+                            }
+                        },
+                        onError = { msg ->
+                            Log.e("RegionSettingScreen", "edit 오류: $msg")
+                        }
+                    )
+                }
+            )
+        }
+
+
+
+
 
 
 

@@ -27,21 +27,26 @@ fun SignInProfileSettingScreen(
     navController: NavController,
     viewModel: ProfileInputViewModel = hiltViewModel(),
     onPrev: () -> Unit = {},
-    onNext: (name: String, gender: String, phone: String, birth: String) -> Unit = { _, _, _, _ -> }
+    onNext: (name: String, gender: String, phone: String, birth: Int) -> Unit = { _, _, _, _ -> }
 ) {
-    // ViewModel의 상태 바로 참조 (자동 캐시 복원값 포함)
     val name = viewModel.name
-    val gender = viewModel.gender ?: ""
+    val gender = viewModel.gender
     val phoneNumber = viewModel.phoneNumber
     val birthYear = viewModel.birthYear
+    val birthMonth = viewModel.birthMonth
+    val birthDay = viewModel.birthDay
 
-    // 유효성 검사
     val isNameValid = name.isNotBlank()
     val isGenderValid = gender.isNotBlank()
-    val phoneDigits = phoneNumber.replace("-", "")
-    val isPhoneValid = phoneDigits.matches(Regex("^01[0-9]{8,9}$"))
-    val isBirthValid = birthYear.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$")) &&
-            runCatching { java.time.LocalDate.parse(birthYear) }.isSuccess
+    val isPhoneValid = phoneNumber.replace("-", "").matches(Regex("^01[0-9]{8,9}$"))
+    val isBirthValid = try {
+        java.time.LocalDate.of(birthYear.toInt(), birthMonth.toInt(), birthDay.toInt())
+        true // ✅ 성공 시 Boolean true 반환
+    } catch (e: Exception) {
+        false
+    }
+
+
     val isFormValid = isNameValid && isGenderValid && isPhoneValid && isBirthValid
 
     val textFieldColors = TextFieldDefaults.colors(
@@ -51,15 +56,13 @@ fun SignInProfileSettingScreen(
         unfocusedContainerColor = Color(0xFFF1F1F1)
     )
 
-
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 상단 앱바
+        // 상단 바
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -71,7 +74,8 @@ fun SignInProfileSettingScreen(
             Button(
                 onClick = {
                     if (isFormValid) {
-                        onNext(name, gender, phoneNumber, birthYear)
+                        val birth = "${birthYear.padStart(4, '0')}${birthMonth.padStart(2, '0')}${birthDay.padStart(2, '0')}".toInt()
+                        onNext(name, gender, phoneNumber, birth)
                     }
                 },
                 enabled = isFormValid,
@@ -84,12 +88,11 @@ fun SignInProfileSettingScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
         Text("모각공에 오신 것을 환영합니다!", fontWeight = FontWeight.Bold)
         Text("이제부터 당신에 대해 알려주세요!", fontSize = 13.sp)
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 캐릭터 이미지 (예시)
+        // 캐릭터 로고
         Box(
             modifier = Modifier
                 .size(100.dp)
@@ -153,18 +156,53 @@ fun SignInProfileSettingScreen(
 
         // 생년월일
         InputLabel("생년월일")
-        TextField(
-            value = birthYear,
-            onValueChange = { viewModel.updateBirthYear(it) },
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("예: 2004-05-24") },
-            colors = textFieldColors,
-            singleLine = true
-        )
-        if (birthYear.isNotBlank() &&
-            (!birthYear.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$")) || runCatching { java.time.LocalDate.parse(birthYear) }.isFailure)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("생년월일을 YYYY-MM-DD 형식으로 입력하세요.", color = Color.Red, fontSize = 12.sp)
+            // ✅ 년도 입력란
+            TextField(
+                value = birthYear,
+                onValueChange = {
+                    val digits = it.filter { c -> c.isDigit() }
+                    if (digits.length <= 4) viewModel.updateBirthYearPart(digits)  // ← 이 부분!
+                },
+                placeholder = { Text("년") },
+                modifier = Modifier.weight(1f),
+                colors = textFieldColors,
+                singleLine = true
+            )
+
+            // 월 입력란
+            TextField(
+                value = birthMonth,
+                onValueChange = {
+                    val digits = it.filter { c -> c.isDigit() }
+                    if (digits.length <= 2) viewModel.updateBirthMonthPart(digits)
+                },
+                placeholder = { Text("월") },
+                modifier = Modifier.weight(1f),
+                colors = textFieldColors,
+                singleLine = true
+            )
+
+            // 일 입력란
+            TextField(
+                value = birthDay,
+                onValueChange = {
+                    val digits = it.filter { c -> c.isDigit() }
+                    if (digits.length <= 2) viewModel.updateBirthDayPart(digits)
+                },
+                placeholder = { Text("일") },
+                modifier = Modifier.weight(1f),
+                colors = textFieldColors,
+                singleLine = true
+            )
+        }
+
+
+        if (!isBirthValid && birthYear.isNotBlank() && birthMonth.isNotBlank() && birthDay.isNotBlank()) {
+            Text("올바른 생년월일(YYYY-MM-DD)을 입력하세요.", color = Color.Red, fontSize = 12.sp)
         }
     }
 }
@@ -197,7 +235,6 @@ fun RowScope.GenderButton(label: String, selected: Boolean, onClick: () -> Unit)
 @Preview(showBackground = true)
 @Composable
 fun PreviewProfileInputScreen() {
-    // 미리보기에서는 NavController가 필요하므로 임시로 생성
     val navController = androidx.navigation.compose.rememberNavController()
     SignInProfileSettingScreen(navController = navController)
 }

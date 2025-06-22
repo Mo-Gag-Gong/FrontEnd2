@@ -368,6 +368,21 @@ class ProfileInputViewModel @Inject constructor(
         selectedInterestIds = ids
     }
 
+    fun updateBirthYearPart(newYear: String) {
+        birthYear = newYear
+        saveProfileToCache()
+    }
+
+    fun updateBirthMonthPart(newMonth: String) {
+        birthMonth = newMonth
+        saveProfileToCache()
+    }
+
+    fun updateBirthDayPart(newDay: String) {
+        birthDay = newDay
+        saveProfileToCache()
+    }
+
 
 
 
