@@ -108,7 +108,7 @@ fun ScheduleScreen(groupId: Long, navController: NavController) {
                 groupDates = groupDates,
                 onDateClick = { clickedDate ->
                     selectedDate = clickedDate
-                    selectedGoals = (goalMap[clickedDate] ?: emptyList()) as List<GoalResponse>
+                    selectedGoals = goalMap[clickedDate]?.map { it.goal } ?: emptyList()
                     scope.launch { sheetState.show() }
                 }
             )
