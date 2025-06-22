@@ -150,4 +150,7 @@ interface GroupApi {
 
     @POST("/api/groups/{groupId}/leave")
     suspend fun leaveGroup(@Path("groupId") groupId: Long): Response<Void>
+
+    @DELETE("/api/groups/{groupId}")
+    suspend fun deactivateGroup(@Path("groupId") groupId: Long): Response<Unit>
 }

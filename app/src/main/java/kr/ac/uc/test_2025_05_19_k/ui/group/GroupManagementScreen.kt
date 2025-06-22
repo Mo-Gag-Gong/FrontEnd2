@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -80,15 +82,93 @@ fun GroupManagementScreen(
                     )
                 }
                 1 -> {
-                    val groups by viewModel.ownedGroups.collectAsState()
-                    val isLoading by viewModel.isLoadingOwned.collectAsState()
-                    GroupList(
-                        groups = groups,
-                        isLoading = isLoading,
-                        emptyMessage = "만든 그룹이 없습니다.",
-                        onGroupClick = { groupId ->
-                            navController.navigate("group_admin_detail/$groupId")
+                    OwnedGroupsTabContent(navController = navController, viewModel = viewModel)
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun OwnedGroupsTabContent(
+    navController: NavController,
+    viewModel: GroupManagementViewModel
+) {
+    val groups by viewModel.ownedGroups.collectAsState()
+    val isLoading by viewModel.isLoadingOwned.collectAsState()
+
+    when {
+        isLoading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        groups.isEmpty() -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "만든 그룹이 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        else -> {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
+                items(groups, key = { group -> group.groupId }) { group ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 그룹 정보 카드
+                        Box(modifier = Modifier.weight(1f)) {
+                            HomeGroupCard(
+                                group = group,
+                                onClick = { navController.navigate("group_admin_detail/${group.groupId}") }
+                            )
                         }
+                        // 수정 아이콘 버튼
+                        IconButton(
+                            onClick = { navController.navigate("group_edit/${group.groupId}") }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "그룹 정보 수정",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun JoinedGroupList(
+    groups: List<StudyGroup>,
+    isLoading: Boolean,
+    onGroupClick: (Long) -> Unit
+) {
+    when {
+        isLoading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        groups.isEmpty() -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "참여한 그룹이 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        else -> {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
+                items(groups, key = { group -> group.groupId }) { group ->
+                    HomeGroupCard(
+                        group = group,
+                        onClick = { onGroupClick(group.groupId) }
                     )
                 }
             }

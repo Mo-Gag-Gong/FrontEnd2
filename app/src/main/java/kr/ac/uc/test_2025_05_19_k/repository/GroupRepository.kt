@@ -198,4 +198,8 @@ class GroupRepository @Inject constructor(
             throw Exception("Failed to leave group: ${response.code()}")
         }
     }
+
+    suspend fun deactivateGroup(groupId: Long): Response<Unit> {
+        return groupApi.deactivateGroup(groupId)
+    }
 }

@@ -129,4 +129,3 @@ fun mergeContinuousPersonalGoals(goals: List<PersonalGoal>): List<MergedGoal> {
     result.add(MergedGoal(start.toString(), end.toString(), currentTitle))
     return result
 }
-

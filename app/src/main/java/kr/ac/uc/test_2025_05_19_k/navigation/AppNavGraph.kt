@@ -317,7 +317,7 @@ fun AppNavGraph(
         ) { backStackEntry ->
             val groupId = backStackEntry.arguments?.getLong("groupId") ?: -1L
             if (groupId != -1L) {
-                GroupEditScreen(navController = navController, groupId = groupId)
+                GroupEditScreen(navController = navController)
             } else {
                 Text("오류: 유효하지 않은 그룹 ID 입니다.")
             }

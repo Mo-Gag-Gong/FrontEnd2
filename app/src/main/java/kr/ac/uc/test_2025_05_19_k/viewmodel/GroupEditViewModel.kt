@@ -9,8 +9,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.model.Interest
@@ -19,6 +21,11 @@ import kr.ac.uc.test_2025_05_19_k.model.request.GroupCreateRequest
 import kr.ac.uc.test_2025_05_19_k.repository.GroupRepository
 import kr.ac.uc.test_2025_05_19_k.repository.InterestRepository
 import javax.inject.Inject
+
+sealed class GroupEditEvent {
+    data class ShowToast(val message: String) : GroupEditEvent()
+    data object NavigateBack : GroupEditEvent()
+}
 
 @HiltViewModel
 class GroupEditViewModel @Inject constructor(
@@ -53,6 +60,13 @@ class GroupEditViewModel @Inject constructor(
     private val _updateSuccess = MutableStateFlow(false)
     val updateSuccess: StateFlow<Boolean> = _updateSuccess.asStateFlow()
 
+    // [수정] UI 이벤트를 한 번만 처리하기 위해 SharedFlow 사용
+    private val _eventFlow = MutableSharedFlow<GroupEditEvent>()
+    val eventFlow = _eventFlow.asSharedFlow()
+
+    // [추가] 그룹 해산 확인 다이얼로그 상태
+    private val _showDisbandDialog = MutableStateFlow(false)
+    val showDisbandDialog: StateFlow<Boolean> = _showDisbandDialog.asStateFlow()
 
     init {
         if (groupId != -1L) {
@@ -138,23 +152,16 @@ class GroupEditViewModel @Inject constructor(
 
         viewModelScope.launch {
             _isUpdating.value = true
-            _errorMessage.value = null
-            _updateSuccess.value = false
             try {
-                Log.d("GroupEditViewModel", "그룹 정보 수정 시도 (ID: $groupId): $request")
-                val response = groupRepository.updateGroup(groupId, request) // 실제 API 호출
-                if (response.isSuccessful && response.body() != null) {
-                    Log.d("GroupEditViewModel", "그룹 정보 수정 성공: ${response.body()}")
-                    _updateSuccess.value = true
-                    onSuccess()
+                val response = groupRepository.updateGroup(groupId, request)
+                if (response.isSuccessful) {
+                    _eventFlow.emit(GroupEditEvent.ShowToast("그룹 정보가 수정되었습니다."))
+                    _eventFlow.emit(GroupEditEvent.NavigateBack)
                 } else {
-                    val errorBody = response.errorBody()?.string() ?: "알 수 없는 서버 오류"
-                    Log.e("GroupEditViewModel", "그룹 정보 수정 API 실패: ${response.code()} - $errorBody")
-                    onError("그룹 정보 수정에 실패했습니다. (코드: ${response.code()})")
+                    _eventFlow.emit(GroupEditEvent.ShowToast("수정 실패: ${response.code()}"))
                 }
             } catch (e: Exception) {
-                Log.e("GroupEditViewModel", "그룹 정보 수정 중 예외 발생: ${e.message}", e)
-                onError(e.localizedMessage ?: "그룹 정보 수정 중 오류가 발생했습니다.")
+                _eventFlow.emit(GroupEditEvent.ShowToast("오류 발생: ${e.message}"))
             } finally {
                 _isUpdating.value = false
             }
@@ -175,5 +182,33 @@ class GroupEditViewModel @Inject constructor(
     }
     fun onMaxMembersChange(newMaxMembers: String) {
         maxMembers = newMaxMembers
+    }
+
+    fun onDisbandButtonClick() {
+        _showDisbandDialog.value = true
+    }
+
+    // [추가] 다이얼로그 취소
+    fun onDisbandDialogDismiss() {
+        _showDisbandDialog.value = false
+    }
+
+    // [추가] 다이얼로그에서 '확인' 눌렀을 때 실제 그룹 해산 요청
+    fun confirmDisbandGroup() {
+        _showDisbandDialog.value = false
+        viewModelScope.launch {
+            try {
+                val response = groupRepository.deactivateGroup(groupId)
+                if (response.isSuccessful) {
+                    _eventFlow.emit(GroupEditEvent.ShowToast("그룹이 해산되었습니다."))
+                    _eventFlow.emit(GroupEditEvent.NavigateBack) // 성공 시 이전 화면으로 이동
+                } else {
+                    _eventFlow.emit(GroupEditEvent.ShowToast("그룹 해산에 실패했습니다: ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                Log.e("GroupEditVM", "그룹 해산 실패", e)
+                _eventFlow.emit(GroupEditEvent.ShowToast("오류가 발생했습니다."))
+            }
+        }
     }
 }
