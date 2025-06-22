@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,28 +29,13 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.viewmodel.GoalResponse
 import kr.ac.uc.test_2025_05_19_k.viewmodel.GoalViewModel
+import kr.ac.uc.test_2025_05_19_k.viewmodel.MergedGoal
+import kr.ac.uc.test_2025_05_19_k.viewmodel.PersonalGoal
 import java.time.LocalDate
 import java.time.YearMonth
 
-// 색상 정의
 private val SkyBlue = Color(0xFFADD8E6)
 private val LightGrayText = Color(0xFF444444)
-
-enum class ScheduleType {
-    NONE, GROUP
-}
-
-fun getScheduleTypeForDate(date: LocalDate, groupDates: Set<LocalDate>): ScheduleType {
-    val hasGroup = groupDates.contains(date)
-    return if (hasGroup) ScheduleType.GROUP else ScheduleType.NONE
-}
-
-fun getColorForScheduleType(type: ScheduleType): Color {
-    return when (type) {
-        ScheduleType.NONE -> Color.Transparent
-        ScheduleType.GROUP -> SkyBlue.copy(alpha = 0.15f)
-    }
-}
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -135,44 +121,14 @@ fun ScheduleScreen(groupId: Long, navController: NavController) {
                 }.toSortedMap()
             }
 
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                mergedMap.forEach { (date, goals) ->
-                    item {
-                        Text(
-                            "${date.dayOfMonth}일",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = SkyBlue,
-                            modifier = Modifier.padding(vertical = 6.dp)
-                        )
-                    }
-                    items(goals.size) { index ->
-                        val goal = goals[index]
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, SkyBlue),
-                            elevation = CardDefaults.cardElevation(2.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    goal.title,
-                                    color = LightGrayText,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-                        }
-                    }
+            val mergedGoals = remember(mergedMap) {
+                val flatGoals = mergedMap.flatMap { (date, goals) ->
+                    goals.map { goal -> PersonalGoal(date.toString(), goal.title) }
                 }
+                viewModel.mergeContinuousPersonalGoals(flatGoals)
             }
+
+            MergedGoalList(goals = mergedGoals)
         }
 
         if (sheetState.isVisible) {
@@ -202,6 +158,40 @@ fun ScheduleScreen(groupId: Long, navController: NavController) {
         }
     }
 }
+
+@Composable
+fun MergedGoalList(goals: List<MergedGoal>) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(goals) { goal ->
+            val startDay = LocalDate.parse(goal.startDate).dayOfMonth
+            val endDay = LocalDate.parse(goal.endDate).dayOfMonth
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFADD8E6)),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = if (startDay == endDay)
+                            " ${startDay}일"
+                        else
+                            " ${startDay}일 ~ ${endDay}일",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFADD8E6)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(goal.title, color = Color.DarkGray)
+                }
+            }
+        }
+    }
+}
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable

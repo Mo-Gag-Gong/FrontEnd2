@@ -45,4 +45,88 @@ class GoalViewModel @Inject constructor(
             _goalMap.value = dateMap
         }
     }
+    /**
+     * 연속된 날짜의 동일 제목 일정을 병합
+     */
+    fun mergeContinuousPersonalGoals(goals: List<PersonalGoal>): List<MergedGoal> {
+        if (goals.isEmpty()) return emptyList()
+
+        val sorted = goals.sortedBy { it.date }
+        val merged = mutableListOf<MergedGoal>()
+
+        var startDate = LocalDate.parse(sorted[0].date)
+        var endDate = startDate
+        var currentTitle = sorted[0].title
+
+        for (i in 1 until sorted.size) {
+            val current = sorted[i]
+            val currentDate = LocalDate.parse(current.date)
+
+            if (currentDate == endDate.plusDays(1) && current.title == currentTitle) {
+                // 연속된 일정이며 제목도 같으면 병합 연장
+                endDate = currentDate
+            } else {
+                // 이전 병합 종료
+                merged.add(
+                    MergedGoal(
+                        startDate.toString(),
+                        endDate.toString(),
+                        currentTitle
+                    )
+                )
+                // 새 병합 시작
+                startDate = currentDate
+                endDate = currentDate
+                currentTitle = current.title
+            }
+        }
+
+        // 마지막 일정 병합 처리
+        merged.add(
+            MergedGoal(
+                startDate.toString(),
+                endDate.toString(),
+                currentTitle
+            )
+        )
+
+        return merged
+    }
 }
+
+
+// 일정 병합에 사용되는 데이터 클래스
+data class PersonalGoal(val date: String, val title: String)
+
+// 연속된 일정 결과 구조
+data class MergedGoal(val startDate: String, val endDate: String, val title: String)
+
+// ViewModel 내에 추가
+fun mergeContinuousPersonalGoals(goals: List<PersonalGoal>): List<MergedGoal> {
+    if (goals.isEmpty()) return emptyList()
+
+    val sorted = goals.sortedWith(compareBy({ it.title }, { it.date }))
+    val result = mutableListOf<MergedGoal>()
+
+    var start = LocalDate.parse(sorted[0].date)
+    var end = start
+    var currentTitle = sorted[0].title
+
+    for (i in 1 until sorted.size) {
+        val g = sorted[i]
+        val date = LocalDate.parse(g.date)
+
+        if (g.title == currentTitle && date == end.plusDays(1)) {
+            end = date
+        } else {
+            result.add(MergedGoal(start.toString(), end.toString(), currentTitle))
+            start = date
+            end = date
+            currentTitle = g.title
+        }
+    }
+
+    result.add(MergedGoal(start.toString(), end.toString(), currentTitle))
+    return result
+}
+
