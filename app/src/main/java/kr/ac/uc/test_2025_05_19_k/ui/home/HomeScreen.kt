@@ -4,7 +4,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -37,36 +36,42 @@ fun HomeScreen(
     val selectedInterest by viewModel.selectedInterest.collectAsState()
     val groupList by viewModel.groupList.collectAsState()
     val isLoadingInitial by viewModel.isLoadingInitial.collectAsState()
-    val dialogState by viewModel.dialogState.collectAsState()
 
-    // ▼▼▼ [추가] BottomSheet 상태 관리를 위한 변수들 ▼▼▼
+    // ▼▼▼ [수정] ViewModel의 applicationStatus 상태를 구독 ▼▼▼
+    val applicationStatus by viewModel.applicationStatus.collectAsState()
+
     val sheetState = rememberModalBottomSheetState()
     var selectedGroup by remember { mutableStateOf<StudyGroup?>(null) }
+    var showBottomSheet by remember { mutableStateOf(false) } // BottomSheet 표시 여부 상태
     val scope = rememberCoroutineScope()
 
+    // ▼▼▼ [수정] 새로운 ApplicationStatusDialog 호출 방식 ▼▼▼
     ApplicationStatusDialog(
-        dialogState = dialogState,
-        onDismiss = { viewModel.dismissDialog() }
+        applicationStatus = applicationStatus,
+        onDismiss = { viewModel.dismissDialog() },
+        onConfirm = { viewModel.dismissDialog() }
     )
 
-    if (selectedGroup != null) {
+    // BottomSheet 표시 로직
+    if (showBottomSheet) {
         ModalBottomSheet(
-            onDismissRequest = { selectedGroup = null },
+            onDismissRequest = { showBottomSheet = false },
             sheetState = sheetState,
             dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
-            GroupApplySheetContent(
-                group = selectedGroup!!,
-                onApply = {
-                    // ▼▼▼ [수정] ViewModel의 applyToGroup 호출 ▼▼▼
-                    scope.launch {
-                        sheetState.hide()
-                        // ViewModel의 함수를 호출하고, UI에서는 성공/실패를 직접 처리하지 않음
-                        viewModel.applyToGroup(selectedGroup!!.groupId)
-                        selectedGroup = null
+            selectedGroup?.let { group ->
+                GroupApplySheetContent(
+                    group = group,
+                    onApply = {
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showBottomSheet = false
+                            }
+                        }
+                        viewModel.applyToGroup(group.groupId)
                     }
-                }
-            )
+                )
+            }
         }
     }
 
@@ -142,13 +147,12 @@ fun HomeScreen(
                         HomeGroupCard(
                             group = group,
                             onClick = {
-                                // ▼▼▼ [수정] 클릭 시 BottomSheet를 띄우도록 로직 변경 ▼▼▼
                                 if (group.isMember) {
-                                    // 이미 가입한 그룹은 상세 화면으로 이동
                                     navController.navigate("group_detail/${group.groupId}")
                                 } else {
                                     // 가입하지 않은 그룹은 하단 시트를 표시
                                     selectedGroup = group
+                                    showBottomSheet = true
                                 }
                             }
                         )

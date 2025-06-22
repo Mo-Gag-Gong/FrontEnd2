@@ -22,15 +22,15 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kr.ac.uc.test_2025_05_19_k.viewmodel.HomeViewModel
+import kr.ac.uc.test_2025_05_19_k.viewmodel.SearchViewModel
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(
     navController: NavController,
-    viewModel: HomeViewModel = hiltViewModel(),
+    viewModel: SearchViewModel = hiltViewModel(),
     onSearch: (String) -> Unit
 ) {
-    val region by viewModel.region.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     val recentSearches by viewModel.recentSearches.collectAsState()
     val focusManager = LocalFocusManager.current
@@ -44,7 +44,6 @@ fun SearchScreen(
     }
 
     LaunchedEffect(Unit) {
-        viewModel.initUser()
         viewModel.loadRecentSearches()
     }
 

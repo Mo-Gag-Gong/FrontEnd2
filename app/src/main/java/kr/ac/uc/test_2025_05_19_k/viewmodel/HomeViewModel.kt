@@ -62,8 +62,11 @@ class HomeViewModel @Inject constructor(
     private val _isLastPage = MutableStateFlow(false)
     val isLastPage: StateFlow<Boolean> = _isLastPage.asStateFlow()
 
-    private val _dialogState = MutableStateFlow(DialogState.HIDDEN)
-    val dialogState: StateFlow<DialogState> = _dialogState.asStateFlow()
+    private val _applicationStatus = MutableStateFlow<Pair<Boolean, String>?>(null)
+    val applicationStatus: StateFlow<Pair<Boolean, String>?> = _applicationStatus.asStateFlow()
+
+    private val _selectedGroupId = MutableStateFlow<Long?>(null)
+    val selectedGroupId: StateFlow<Long?> = _selectedGroupId.asStateFlow()
 
     private val pageSize = 10
 
@@ -74,8 +77,13 @@ class HomeViewModel @Inject constructor(
         fetchJoinedGroupIds()
     }
 
+    fun showApplyDialog(groupId: Long) {
+        _selectedGroupId.value = groupId
+    }
+
     fun dismissDialog() {
-        _dialogState.value = DialogState.HIDDEN
+        _selectedGroupId.value = null
+        _applicationStatus.value = null
     }
 
     fun initUser() {
@@ -283,22 +291,20 @@ class HomeViewModel @Inject constructor(
         userPreference.clearRecentSearches()
         loadRecentSearches()
     }
-    
-    suspend fun applyToGroup(groupId: Long) {
-        try {
-            groupRepository.applyToGroup(groupId)
-            // API 호출이 성공하면 (Exception이 발생하지 않으면) 성공 상태로 변경
-            _dialogState.value = DialogState.SUCCESS
-        } catch (e: Exception) {
-            // HttpException이고 코드가 400이면, 이미 신청했거나 다른 문제 발생
-            if (e is HttpException && e.code() == 400) {
-                // 서버의 에러 메시지를 파싱하여 더 정확하게 분기할 수 있으나,
-                // 여기서는 400 에러를 '이미 신청/대기 중'으로 간주합니다.
-                _dialogState.value = DialogState.PENDING
-            } else {
-                // 그 외 네트워크 오류 등
-                Log.e("HomeViewModel", "Failed to apply to group", e)
-                throw e // UI단에서 추가 처리가 필요하면 에러를 다시 던짐
+
+    fun applyToGroup(groupId: Long) {
+        viewModelScope.launch {
+            try {
+                groupRepository.applyToGroup(groupId)
+                _applicationStatus.value = Pair(true, "스터디 그룹에 성공적으로 지원했습니다.")
+            } catch (e: Exception) {
+                val errorMessage = e.message ?: "알 수 없는 오류가 발생했습니다."
+                if (errorMessage.contains("400")) { // 예시: 중복 지원 처리
+                    _applicationStatus.value = Pair(false, "이미 지원했거나 가입된 그룹입니다.")
+                } else {
+                    _applicationStatus.value = Pair(false, "지원에 실패했습니다: $errorMessage")
+                }
+                Log.e("HomeViewModel", "Apply to group failed", e)
             }
         }
     }

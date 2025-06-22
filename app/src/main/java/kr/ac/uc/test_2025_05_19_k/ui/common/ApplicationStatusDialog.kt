@@ -12,24 +12,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kr.ac.uc.test_2025_05_19_k.viewmodel.HomeViewModel
 
+/**
+ * 특정 ViewModel에 의존하지 않고, 전달된 상태에 따라 결과를 표시하는 범용 다이얼로그
+ */
 @Composable
 fun ApplicationStatusDialog(
-    dialogState: HomeViewModel.DialogState,
-    onDismiss: () -> Unit
+    applicationStatus: Pair<Boolean, String>?, // (성공 여부, 메시지)
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
 ) {
-    if (dialogState != HomeViewModel.DialogState.HIDDEN) {
-        val title = when (dialogState) {
-            HomeViewModel.DialogState.SUCCESS -> "신청 완료!"
-            HomeViewModel.DialogState.PENDING -> "알림"
-            else -> ""
-        }
-        val message = when (dialogState) {
-            HomeViewModel.DialogState.SUCCESS -> "그룹장이 수락을 완료하면\n가입이 완료되요!"
-            HomeViewModel.DialogState.PENDING -> "그룹장 수락 대기중입니다."
-            else -> ""
-        }
+    if (applicationStatus != null) {
+        val isSuccess = applicationStatus.first
+        val message = applicationStatus.second
+        val title = if (isSuccess) "신청 완료!" else "알림"
 
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -52,7 +48,7 @@ fun ApplicationStatusDialog(
             },
             confirmButton = {
                 Button(
-                    onClick = onDismiss,
+                    onClick = onConfirm,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 8.dp)

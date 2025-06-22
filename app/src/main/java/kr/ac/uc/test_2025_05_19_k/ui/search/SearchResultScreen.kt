@@ -1,7 +1,5 @@
 package kr.ac.uc.test_2025_05_19_k.ui.search
 
-import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -26,60 +23,60 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import kr.ac.uc.test_2025_05_19_k.model.StudyGroup
+import kr.ac.uc.test_2025_05_19_k.ui.common.ApplicationStatusDialog
 import kr.ac.uc.test_2025_05_19_k.ui.common.HomeGroupCard
 import kr.ac.uc.test_2025_05_19_k.ui.group.detail.GroupApplySheetContent
-import kr.ac.uc.test_2025_05_19_k.viewmodel.HomeViewModel
-import kr.ac.uc.test_2025_05_19_k.ui.common.ApplicationStatusDialog
+import kr.ac.uc.test_2025_05_19_k.viewmodel.SearchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchResultScreen(
     navController: NavController,
     searchQuery: String,
-    viewModel: HomeViewModel = hiltViewModel(),
+    viewModel: SearchViewModel = hiltViewModel(),
 ) {
-    val context = LocalContext.current
-    val groupList by viewModel.groupList.collectAsState()
-    val isLoading by viewModel.isLoadingInitial.collectAsState()
+    val groupList by viewModel.searchResults.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val applicationStatus by viewModel.applicationStatus.collectAsState()
 
-    // ▼▼▼ [수정] 1. 상태 변수 분리 ▼▼▼
-    // 검색 '입력창'의 텍스트를 위한 상태
     var textFieldQuery by remember { mutableStateOf(searchQuery) }
-    // 화면 '제목'에 표시될, 실제 검색이 실행된 검색어를 위한 상태
     var displayedQuery by remember { mutableStateOf(searchQuery) }
-
-    val dialogState by viewModel.dialogState.collectAsState()
 
     val sheetState = rememberModalBottomSheetState()
     var selectedGroup by remember { mutableStateOf<StudyGroup?>(null) }
+    var showBottomSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(searchQuery) {
-        viewModel.fetchSearchResults(searchQuery)
+        viewModel.searchGroups(searchQuery)
     }
 
+    // 수정된 다이얼로그 호출
     ApplicationStatusDialog(
-        dialogState = dialogState,
-        onDismiss = { viewModel.dismissDialog() }
+        applicationStatus = applicationStatus,
+        onDismiss = { viewModel.dismissDialog() },
+        onConfirm = { viewModel.dismissDialog() }
     )
 
-    if (selectedGroup != null) {
+    if (showBottomSheet) {
         ModalBottomSheet(
-            onDismissRequest = { selectedGroup = null },
+            onDismissRequest = { showBottomSheet = false },
             sheetState = sheetState,
             dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
-            GroupApplySheetContent(
-                group = selectedGroup!!,
-                onApply = {
-                    // ▼▼▼ [수정] ViewModel의 applyToGroup 호출 ▼▼▼
-                    scope.launch {
-                        sheetState.hide()
-                        viewModel.applyToGroup(selectedGroup!!.groupId)
-                        selectedGroup = null
+            selectedGroup?.let { group ->
+                GroupApplySheetContent(
+                    group = group,
+                    onApply = {
+                        viewModel.applyToGroup(group.groupId)
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showBottomSheet = false
+                            }
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 
@@ -90,21 +87,19 @@ fun SearchResultScreen(
                 .fillMaxSize()
         ) {
             SearchResultAppBar(
-                query = textFieldQuery, // 입력창은 textFieldQuery를 사용
-                onQueryChange = { textFieldQuery = it }, // 입력 시 textFieldQuery만 변경
+                query = textFieldQuery,
+                onQueryChange = { textFieldQuery = it },
                 onBack = { navController.popBackStack() },
                 onSearch = { newQuery ->
-                    // ▼▼▼ [수정] 2. 실제 검색 시에만 제목(displayedQuery)을 업데이트 ▼▼▼
                     if (newQuery.isNotBlank()) {
                         displayedQuery = newQuery
-                        viewModel.fetchSearchResults(newQuery)
+                        viewModel.searchGroups(newQuery)
                     }
                 }
             )
 
-            // ▼▼▼ [수정] 3. 제목 텍스트가 displayedQuery를 보도록 변경 ▼▼▼
             Text(
-                text = "\"${displayedQuery}\" 검색 결과",
+                text = "\"$displayedQuery\" 검색 결과",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
@@ -135,6 +130,7 @@ fun SearchResultScreen(
                                     navController.navigate("group_detail/${group.groupId}")
                                 } else {
                                     selectedGroup = group
+                                    showBottomSheet = true
                                 }
                             }
                         )
@@ -145,9 +141,7 @@ fun SearchResultScreen(
     }
 }
 
-/**
- * 검색 결과 화면의 상단 앱 바
- */
+
 @Composable
 private fun SearchResultAppBar(
     query: String,
@@ -174,9 +168,8 @@ private fun SearchResultAppBar(
                 shape = RoundedCornerShape(10.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedContainerColor = Color(0xFFF3F3F3),
-                    unfocusedContainerColor = Color(0xFFF3F3F3)
+                    unfocusedContainerColor = Color(0xFFF3F3F3),
+                    focusedContainerColor = Color(0xFFF3F3F3)
                 ),
                 trailingIcon = {
                     if (query.isNotEmpty()) {
