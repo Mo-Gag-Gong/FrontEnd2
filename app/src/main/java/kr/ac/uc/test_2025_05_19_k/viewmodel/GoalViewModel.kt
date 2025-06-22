@@ -19,21 +19,25 @@ class GoalViewModel @Inject constructor(
     private val _goalMap = MutableStateFlow<Map<LocalDate, List<GoalWithGroupName>>>(emptyMap())
     val goalMap: StateFlow<Map<LocalDate, List<GoalWithGroupName>>> = _goalMap
 
-    // ✅ 서버로부터 그룹 목표 리스트 로드
     fun loadGoalsFromMyGroups() {
         viewModelScope.launch {
-            val groupIds = repository.getJoinedGroupIds()
+            // ✅ 소유 + 참여 그룹 모두 가져오기
+            val relatedGroups = repository.getAllMyRelatedGroups()
+            val groupIds = relatedGroups.map { it.groupId }
+
             val allGoals = mutableListOf<GoalWithGroupName>()
 
             for (groupId in groupIds) {
                 val goals = repository.getGoalsByGroup(groupId)
-                val groupName = repository.getGroupName(groupId) // ✅ 안전하게 이름 가져오기
+
+                // ✅ GoalResponse 내에 이미 groupName 필드가 있으므로 별도 API 호출 없이 그대로 사용
                 for (goal in goals) {
+                    val groupName = goal.groupName?.takeIf { it.isNotBlank() } ?: "이름없는 그룹"
                     allGoals += GoalWithGroupName(goal, groupName)
                 }
             }
 
-
+            // ✅ 날짜별로 GoalWithGroupName 매핑
             val dateMap = mutableMapOf<LocalDate, MutableList<GoalWithGroupName>>()
             for (item in allGoals) {
                 val start = LocalDate.parse(item.goal.startDate)
@@ -48,6 +52,8 @@ class GoalViewModel @Inject constructor(
             _goalMap.value = dateMap
         }
     }
+
+
 
     /**
      * 연속된 날짜의 동일 제목 + 동일 그룹 일정을 병합
