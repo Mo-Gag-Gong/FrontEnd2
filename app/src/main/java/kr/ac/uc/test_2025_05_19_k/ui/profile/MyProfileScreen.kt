@@ -173,7 +173,7 @@ fun MyProfileScreen(
                 .clickable { navController.navigate("region_setting_cache") }
         ) {
             Column {
-                Text("📍 현재 지역", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(" 현재 지역", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(displayedLocation, fontSize = 14.sp, color = Color.DarkGray)
                 Text("터치하여 지역 정보 수정", fontSize = 12.sp, color = Color.Gray)
             }
@@ -187,7 +187,7 @@ fun MyProfileScreen(
             elevation = CardDefaults.cardElevation(6.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("📊 통계", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(" 통계", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("그룹 참여 횟수: ${profile.groupParticipationCount}회", color = Color.Gray)
                 Text("총 모임 수: ${profile.totalMeetings}회", color = Color.Gray)

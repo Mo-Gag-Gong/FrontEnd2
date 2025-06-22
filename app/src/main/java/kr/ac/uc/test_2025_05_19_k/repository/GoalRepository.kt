@@ -59,5 +59,13 @@ class GoalRepository @Inject constructor(
         return goalApi.getMyPersonalGoals()
     }
 
+    suspend fun getGroupName(groupId: Long): String {
+        return try {
+            groupApi.getGroupDetail(groupId).title
+        } catch (e: Exception) {
+            "이름없는 그룹" // 실패 시 기본값 반환
+        }
+    }
+
 
 }

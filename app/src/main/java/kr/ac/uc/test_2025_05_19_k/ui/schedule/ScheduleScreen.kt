@@ -108,7 +108,7 @@ fun ScheduleScreen(groupId: Long, navController: NavController) {
                 groupDates = groupDates,
                 onDateClick = { clickedDate ->
                     selectedDate = clickedDate
-                    selectedGoals = goalMap[clickedDate] ?: emptyList()
+                    selectedGoals = (goalMap[clickedDate] ?: emptyList()) as List<GoalResponse>
                     scope.launch { sheetState.show() }
                 }
             )
@@ -121,12 +121,45 @@ fun ScheduleScreen(groupId: Long, navController: NavController) {
                 }.toSortedMap()
             }
 
+            // 1. 병합 일정 리스트 생성
             val mergedGoals = remember(mergedMap) {
                 val flatGoals = mergedMap.flatMap { (date, goals) ->
-                    goals.map { goal -> PersonalGoal(date.toString(), goal.title) }
+                    goals.map { goalWithGroup ->
+                        PersonalGoal(
+                            date = date.toString(),
+                            title = goalWithGroup.goal.title,
+                            groupName = goalWithGroup.groupName
+                        )
+                    }
                 }
                 viewModel.mergeContinuousPersonalGoals(flatGoals)
             }
+
+// 2. 병합 일정에 포함된 날짜들 Set으로 추출
+            val mergedDateSet = mergedGoals.flatMap { merged ->
+                val start = LocalDate.parse(merged.startDate)
+                val end = LocalDate.parse(merged.endDate)
+                generateSequence(start) { if (it < end) it.plusDays(1) else null }.plus(end).toList()
+            }.toSet()
+
+// 3. 단일 일정만 남긴 맵
+            val filteredSingles = mergedMap.filterKeys { date ->
+                !mergedDateSet.contains(date)
+            }
+
+// 4. 병합 일정 UI 출력
+            MergedGoalList(goals = mergedGoals)
+
+// 5. 단일 일정 UI 출력
+            Text("단일 일정", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SkyBlue)
+            filteredSingles.forEach { (date, goals) ->
+                Text(" ${date.dayOfMonth}일", fontWeight = FontWeight.Bold)
+                goals.forEach { goal ->
+                    Text("• ${goal.goal.title} (${goal.groupName})", color = Color.DarkGray)
+                }
+            }
+
+
 
             MergedGoalList(goals = mergedGoals)
         }
@@ -185,13 +218,13 @@ fun MergedGoalList(goals: List<MergedGoal>) {
                         color = Color(0xFFADD8E6)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(goal.title, color = Color.DarkGray)
+                    Text("제목: ${goal.title}", color = Color.DarkGray)
+                    Text("그룹: ${goal.groupName}", color = Color.Gray)
                 }
             }
         }
     }
 }
-
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -233,7 +266,7 @@ fun CalendarGrid(
 
                     val backgroundColor = when {
                         isToday -> SkyBlue.copy(alpha = 0.2f)
-                        hasSchedule -> SkyBlue.copy(alpha = 0.1f)
+                        hasSchedule -> SkyBlue.copy(alpha = 0.3f)
                         else -> Color.Transparent
                     }
 
