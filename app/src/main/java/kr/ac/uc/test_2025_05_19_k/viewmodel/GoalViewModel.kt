@@ -32,7 +32,7 @@ class GoalViewModel @Inject constructor(
 
                 // ✅ GoalResponse 내에 이미 groupName 필드가 있으므로 별도 API 호출 없이 그대로 사용
                 for (goal in goals) {
-                    val groupName = goal.groupName?.takeIf { it.isNotBlank() } ?: "이름없는 그룹"
+                    val groupName = repository.getGroupName(groupId)
                     allGoals += GoalWithGroupName(goal, groupName)
                 }
             }
